@@ -1,21 +1,49 @@
 #!/usr/bin/env bash
-# ai-bu-git-productivity/install.sh
-# Detects your shell, backs up configs, installs aliases/hooks/gitconfig.
+# ─────────────────────────────────────────────────────────────────────
+# Git Productivity Toolkit -- installer
+#
+# Detects your shell, backs up existing configs, installs aliases,
+# git config extras, and optional hooks. Every step asks before
+# changing anything.
 #
 # Usage:
 #   bash install.sh           # interactive install
-#   bash install.sh --preview # dry run, no changes
+#   bash install.sh --preview # dry run, shows what would change
+#   bash install.sh --help    # print usage and exit
+# ─────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
+
+cleanup_on_error() {
+  echo ""
+  echo "${RED:-}ERROR: Install failed at line $1.${RESET:-}"
+  echo "Your original configs were not modified (or were backed up first)."
+  echo "Fix the issue and re-run: bash install.sh"
+  echo ""
+}
+trap 'cleanup_on_error $LINENO' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_LINE="source \"$SCRIPT_DIR/aliases.sh\""
 BACKUP_DIR="$HOME/.git-productivity-backups/$(date +%Y%m%d-%H%M%S)"
 PREVIEW_ONLY=false
 
-if [[ "${1:-}" == "--preview" ]]; then
-  PREVIEW_ONLY=true
-fi
+case "${1:-}" in
+  --preview) PREVIEW_ONLY=true ;;
+  --help|-h)
+    echo "Usage: bash install.sh [--preview | --help]"
+    echo ""
+    echo "  --preview   Dry run. Shows what would be installed without changing anything."
+    echo "  --help      Print this message and exit."
+    exit 0
+    ;;
+  "")  ;; # no argument, proceed normally
+  *)
+    echo "Unknown option: $1"
+    echo "Usage: bash install.sh [--preview | --help]"
+    exit 1
+    ;;
+esac
 
 # =============================================================================
 # Color helpers
@@ -71,6 +99,20 @@ detect_shell_config() {
 
 DETECTED_SHELL=$(detect_shell)
 SHELL_CONFIG=$(detect_shell_config)
+
+# =============================================================================
+# Prerequisite checks
+# =============================================================================
+if ! command -v git &>/dev/null; then
+  echo "ERROR: git is not installed. Install git first, then re-run this script."
+  exit 1
+fi
+
+if [ ! -f "$SCRIPT_DIR/aliases.sh" ]; then
+  echo "ERROR: aliases.sh not found in $SCRIPT_DIR."
+  echo "Make sure you are running install.sh from the toolkit directory."
+  exit 1
+fi
 
 # =============================================================================
 # Fish shell compatibility check
@@ -147,12 +189,14 @@ backup_file() {
 # Banner
 # =============================================================================
 echo ""
-echo "${BOLD}============================================${RESET}"
-echo "${BOLD}  Git Productivity Toolkit${RESET}"
-echo "${BOLD}============================================${RESET}"
+echo "${BOLD}┌──────────────────────────────────────────┐${RESET}"
+echo "${BOLD}│       Git Productivity Toolkit           │${RESET}"
+echo "${BOLD}│       40+ aliases, 3 hooks, done.        │${RESET}"
+echo "${BOLD}└──────────────────────────────────────────┘${RESET}"
 echo ""
 echo "  Shell:   ${CYAN}$DETECTED_SHELL${RESET}"
 echo "  Config:  ${CYAN}$SHELL_CONFIG${RESET}"
+echo "  Source:  ${CYAN}$SCRIPT_DIR${RESET}"
 echo ""
 
 if [ "$DETECTED_SHELL" = "fish" ]; then
@@ -168,37 +212,40 @@ if [ "$PREVIEW_ONLY" = true ]; then
 fi
 
 # =============================================================================
-# Preview: Top 10 aliases
+# Preview: what will be installed
 # =============================================================================
-section "What You Get"
+section "What Will Be Installed"
 
-echo "  ${CYAN}gs${RESET}              ${DIM}status with branch + ahead/behind${RESET}"
-echo "  ${CYAN}gc \"msg\"${RESET}         ${DIM}stage all + commit${RESET}"
-echo "  ${CYAN}gpush${RESET}            ${DIM}push + auto set upstream${RESET}"
-echo "  ${CYAN}glog${RESET}             ${DIM}graph log with colors and dates${RESET}"
-echo "  ${CYAN}gco${RESET}              ${DIM}checkout (fzf picker if no arg)${RESET}"
-echo "  ${CYAN}gcb <name>${RESET}       ${DIM}create + switch branch${RESET}"
-echo "  ${CYAN}gwip / gunwip${RESET}    ${DIM}WIP commit / undo it${RESET}"
-echo "  ${CYAN}grebase-main${RESET}     ${DIM}fetch + rebase onto main/master${RESET}"
-echo "  ${CYAN}pr-create${RESET}        ${DIM}create PR from branch name${RESET}"
-echo "  ${CYAN}gdash${RESET}            ${DIM}full repo dashboard${RESET}"
+echo "  ${BOLD}1. Shell aliases${RESET} (source line added to $SHELL_CONFIG)"
 echo ""
-echo "  ${DIM}...plus 35+ more. See aliases.sh for the full list.${RESET}"
+echo "     ${CYAN}gs${RESET}              ${DIM}status with branch + ahead/behind${RESET}"
+echo "     ${CYAN}gc \"msg\"${RESET}         ${DIM}stage all + commit${RESET}"
+echo "     ${CYAN}gpush${RESET}            ${DIM}push + auto set upstream${RESET}"
+echo "     ${CYAN}glog${RESET}             ${DIM}graph log with colors and dates${RESET}"
+echo "     ${CYAN}gco${RESET}              ${DIM}checkout (fzf picker if no arg)${RESET}"
+echo "     ${CYAN}gcb <name>${RESET}       ${DIM}create + switch branch${RESET}"
+echo "     ${CYAN}gwip / gunwip${RESET}    ${DIM}WIP commit / undo it${RESET}"
+echo "     ${CYAN}grebase-main${RESET}     ${DIM}fetch + rebase onto main/master${RESET}"
+echo "     ${CYAN}pr-create${RESET}        ${DIM}create PR from branch name${RESET}"
+echo "     ${CYAN}gdash${RESET}            ${DIM}full repo dashboard${RESET}"
+echo "     ${DIM}...plus 35+ more. See aliases.sh for the full list.${RESET}"
+echo ""
+echo "  ${BOLD}2. Git config extras${RESET} (include.path in global gitconfig)"
+echo ""
+echo "     diff.algorithm = histogram       ${DIM}cleaner diffs${RESET}"
+echo "     merge.conflictstyle = zdiff3     ${DIM}easier conflict resolution${RESET}"
+echo "     rebase.autoStash = true          ${DIM}auto-stash before rebase${RESET}"
+echo "     push.autoSetupRemote = true      ${DIM}no more --set-upstream${RESET}"
+echo "     rerere.enabled = true            ${DIM}remembers conflict resolutions${RESET}"
+echo "     core.fsmonitor = true            ${DIM}faster status on large repos${RESET}"
+echo ""
+echo "  ${BOLD}3. Hooks${RESET} (installed to .git/hooks/ in current repo)"
+echo ""
+echo "     ${CYAN}pre-commit${RESET}   Blocks secrets, large files, debug statements"
+echo "     ${CYAN}commit-msg${RESET}   Suggests conventional commit format (never blocks)"
+echo "     ${CYAN}pre-push${RESET}     Warns about uncommitted changes, blocks WIP to main"
 
 if [ "$PREVIEW_ONLY" = true ]; then
-  section "Git Config Extras (gitconfig-extras)"
-  echo "  diff.algorithm = histogram       ${DIM}cleaner diffs${RESET}"
-  echo "  merge.conflictstyle = zdiff3     ${DIM}easier conflict resolution${RESET}"
-  echo "  rebase.autoStash = true          ${DIM}auto-stash before rebase${RESET}"
-  echo "  push.autoSetupRemote = true      ${DIM}no more --set-upstream${RESET}"
-  echo "  rerere.enabled = true            ${DIM}remembers conflict resolutions${RESET}"
-  echo "  core.fsmonitor = true            ${DIM}faster status on large repos${RESET}"
-
-  section "Hooks"
-  echo "  ${CYAN}pre-commit${RESET}   Blocks secrets, large files, debug statements, conflict markers"
-  echo "  ${CYAN}commit-msg${RESET}   Suggests conventional commit format (does not block)"
-  echo "  ${CYAN}pre-push${RESET}     Warns about uncommitted changes, blocks WIP to main"
-
   echo ""
   echo "${BOLD}Run without --preview to install.${RESET}"
   echo ""
@@ -277,6 +324,12 @@ if [ "$INSTALL_ALIASES" = true ]; then
     fi
 
     backup_file "$SHELL_CONFIG"
+
+    # Make sure the config file exists and is writable
+    touch "$SHELL_CONFIG" 2>/dev/null || {
+      err "Cannot write to $SHELL_CONFIG. Check file permissions."
+      exit 1
+    }
 
     if [ "$DETECTED_SHELL" = "fish" ]; then
       FISH_SOURCE="bass source \"$SCRIPT_DIR/aliases.sh\""

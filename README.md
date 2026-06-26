@@ -1,53 +1,65 @@
 # Git Productivity Toolkit
 
-40+ aliases and functions I actually use every day. `gs` instead of `git status`. `gc "msg"` instead of `git add -A && git commit -m "msg"`. `glog` instead of the 42-character log command nobody remembers.
+**You type `git status` 30 times a day.** That is 330 keystrokes spent on a command you could run in two. Multiply by every `git add -A && git commit -m`, every `git log --oneline --graph --decorate --all`, every time you copy-paste the upstream push command Git helpfully suggests after rejecting yours.
 
-Three optional git hooks that catch secrets, suggest conventional commits, and block WIP pushes to main.
+This toolkit gives you 40+ shell aliases and functions that replace the commands you already use with shorter, smarter versions. No new workflows to learn. No plugins to configure. Just the same Git, faster.
 
-## Install
+## Before / After
+
+```
+BEFORE                                              AFTER
+─────────────────────────────────────────────────    ─────────────
+git status                                           gs
+git add -A && git commit -m "feat: add retry"        gc "feat: add retry"
+git log --oneline --graph --decorate --all           glog
+git push --set-upstream origin feature/foo           gpush
+git fetch origin main && git rebase origin/main      grebase-main
+git push -u origin feature/foo && gh pr create       pr-create
+```
+
+## Quick Start
 
 ```bash
 git clone https://github.com/MarkellR-RedHat/ai-bu-git-productivity.git
 cd ai-bu-git-productivity
 bash install.sh            # detects your shell, backs up configs, asks before changing anything
-bash install.sh --preview  # dry run
 ```
 
-## What You Get
+That is it. The installer detects bash or zsh, backs up your shell config, and adds one `source` line. Run `bash install.sh --preview` first if you want a dry run.
 
-### 1. `gs` instead of `git status`
+## What Gets Installed
+
+**Three things, all optional:**
+
+1. **Shell aliases** -- a `source` line added to your `.bashrc` or `.zshrc`
+2. **Git config extras** -- sane defaults (histogram diffs, auto-stash, rerere) via `include.path`
+3. **Three hooks** -- pre-commit (blocks secrets), commit-msg (suggests conventional format), pre-push (blocks WIP to main)
+
+Every step asks for confirmation. Every file gets backed up first. Uninstall by removing the `source` line and the `include.path` entry.
+
+## The Top 10
+
+### `gs` -- status at a glance
 
 ```bash
-# BEFORE:
-git status
-
-# AFTER:
 gs
 main  +2 -0
  M src/auth.py
 ?? notes.txt
 ```
 
-Branch, ahead/behind, and changed files at a glance.
+Branch, ahead/behind, and changed files. Two keystrokes instead of ten.
 
-### 2. `gc "msg"` instead of `git add -A && git commit -m "msg"`
+### `gc "msg"` -- stage and commit in one shot
 
 ```bash
-# BEFORE:
-git add -A
-git commit -m "feat: add retry logic"
-
-# AFTER:
 gc "feat: add retry logic"
+# equivalent to: git add -A && git commit -m "feat: add retry logic"
 ```
 
-### 3. `glog` instead of `git log --oneline --graph --decorate --all`
+### `glog` -- the log command you actually want
 
 ```bash
-# BEFORE:
-git log --oneline --graph --decorate --all
-
-# AFTER:
 glog
 * a1b2c3d (HEAD -> main) feat: add retry logic  (2 hours ago) <Jane>
 | * d4e5f6a (feature/dashboard) WIP: layout       (5 hours ago) <Bob>
@@ -55,21 +67,14 @@ glog
 * 7g8h9i0 fix: auth timeout                       (yesterday) <Jane>
 ```
 
-### 4. `gpush` instead of the first-push dance
+### `gpush` -- push without the upstream dance
 
 ```bash
-# BEFORE:
-git push
-# fatal: The current branch feature/foo has no upstream branch.
-git push --set-upstream origin feature/foo
-
-# AFTER:
 gpush
+# sets upstream automatically on first push, plain push after that
 ```
 
-Sets upstream automatically. No more copying the suggested command.
-
-### 5. `gwip` / `gunwip`
+### `gwip` / `gunwip` -- park your work
 
 ```bash
 gwip                   # stages everything, commits as WIP [skip ci]
@@ -77,31 +82,20 @@ gwip                   # stages everything, commits as WIP [skip ci]
 gunwip                 # undoes the WIP commit, leaves changes staged
 ```
 
-### 6. `grebase-main`
+### `grebase-main` -- rebase without guessing
 
 ```bash
-# BEFORE:
-git fetch origin main   # or was it master? let me check...
-git rebase origin/main
-
-# AFTER:
 grebase-main           # auto-detects main vs master, fetches, rebases
 ```
 
-### 7. `pr-create`
+### `pr-create` -- branch to PR in one command
 
 ```bash
-# BEFORE:
-git push -u origin feature/add-auth-retry
-gh pr create --title "Add auth retry" --fill
-
-# AFTER:
-pr-create              # auto-pushes, generates title from branch name
+pr-create              # pushes, generates PR title from branch name
+# feature/add-auth-retry -> "Add auth retry"
 ```
 
-Generates PR title from branch name. `feature/add-auth-retry` becomes "Add auth retry".
-
-### 8. `gdash`
+### `gdash` -- full repo dashboard
 
 ```bash
 gdash
@@ -124,7 +118,7 @@ Remote:  origin/feature/auth-retry (ahead 2 / behind 0)
 ========================================
 ```
 
-### 9. `gundo`
+### `gundo` -- uncommit without losing anything
 
 ```bash
 gundo
@@ -132,7 +126,7 @@ Undoing commit: feat: add retry logic
 Changes are back in staging. Nothing was lost.
 ```
 
-### 10. `gfind` / `gwho`
+### `gfind` / `gwho` -- investigate history
 
 ```bash
 gfind "retry"          # search commit messages across all branches
@@ -140,57 +134,57 @@ gwho src/auth.py       # who changed this file the most?
 gwhen src/auth.py 42   # who last touched line 42?
 ```
 
-## Full Command Reference
+## Full Alias Reference
 
 ### Every 5 Minutes
 
-| Command | What it does | Keystrokes saved |
-|---------|-------------|-----------------|
-| `gs` | Status with branch info and ahead/behind | 8 per use |
-| `ga` / `gaa` | `git add` / `git add -A` | 5-8 per use |
-| `gd` / `gds` | `git diff` / `git diff --staged` | 6-12 per use |
-| `gc "msg"` | Stage all + commit in one shot | 25 per use |
-| `gpush` | Push + set upstream automatically | 30+ per use |
-| `gpull` | Pull with rebase | 12 per use |
-| `gco [branch]` | Checkout (fzf picker if no arg given) | 8 per use |
-| `gcb <name>` | Create and switch to new branch | 10 per use |
+| Alias | What it does | Replaces |
+|-------|-------------|----------|
+| `gs` | Status with branch + ahead/behind | `git status` |
+| `ga` / `gaa` | Stage file / stage all | `git add` / `git add -A` |
+| `gd` / `gds` | Diff / diff staged | `git diff` / `git diff --staged` |
+| `gc "msg"` | Stage all + commit | `git add -A && git commit -m` |
+| `gpush` | Push + auto set upstream | `git push --set-upstream origin ...` |
+| `gpull` | Pull with rebase | `git pull --rebase` |
+| `gco [branch]` | Checkout (fzf picker if no arg) | `git checkout` |
+| `gcb <name>` | Create + switch branch | `git checkout -b` |
 
 ### Every Hour
 
-| Command | What it does |
-|---------|-------------|
-| `glog` | One-line log with graph, colors, relative dates |
-| `glog1` | Condensed log, last 20 commits, no graph |
+| Alias | What it does |
+|-------|-------------|
+| `glog` | Graph log with colors and relative dates |
+| `glog1` | Condensed log, last 20, no graph |
 | `gamend` | Amend last commit, keep message |
 | `gamend-msg` | Amend last commit, edit message |
 | `gap` | Stage hunks interactively (patch mode) |
-| `gstash [msg]` | Stash everything including untracked files |
-| `gstash-pop` | Pop the most recent stash |
-| `gstash-ls` | List stashes with clean formatting |
-| `grebase-main` | Fetch + rebase onto main/master (auto-detects) |
+| `gstash [msg]` | Stash everything including untracked |
+| `gstash-pop` | Pop most recent stash |
+| `gstash-ls` | List stashes, clean format |
+| `grebase-main` | Fetch + rebase onto main/master |
 | `gfetch` | Fetch all remotes, prune stale branches |
 
 ### Several Times a Day
 
-| Command | What it does |
-|---------|-------------|
+| Alias | What it does |
+|-------|-------------|
 | `gwip` | Quick WIP commit (warns on main, skips CI) |
-| `gunwip` | Undo the last WIP commit |
+| `gunwip` | Undo last WIP commit |
 | `gundo` | Undo last commit, keep changes staged |
-| `gtoday` | Your commits from today (great for standups) |
+| `gtoday` | Your commits from today (standup-ready) |
 | `gweek` | Your commits from the past week |
-| `gdiff-words` | Word-level diff (great for prose and config) |
+| `gdiff-words` | Word-level diff (good for prose and config) |
 | `gdiff-staged` | Show staged changes |
 | `gdiff-last` | Diff of the last commit |
-| `gchanged [N]` | Files changed in the last N commits |
+| `gchanged [N]` | Files changed in last N commits |
 
 ### PR Workflow
 
-| Command | What it does |
-|---------|-------------|
-| `pr-create` | Create PR, auto-fill title from branch name |
+| Alias | What it does |
+|-------|-------------|
+| `pr-create` | Create PR, auto-fill title from branch |
 | `pr-draft` | Create a draft PR |
-| `pr-ready [reviewers]` | Mark draft as ready, request reviewers |
+| `pr-ready [reviewers]` | Mark draft ready, request reviewers |
 | `pr-cleanup` | Delete merged branches locally and remotely |
 | `pr-stack` | Your open PRs with review status |
 | `pr-checkout <num>` | Check out a PR branch by number |
@@ -199,28 +193,28 @@ gwhen src/auth.py 42   # who last touched line 42?
 
 ### Investigation
 
-| Command | What it does |
-|---------|-------------|
-| `gwho <file>` | Who changed this file most (by commit count) |
+| Alias | What it does |
+|-------|-------------|
+| `gwho <file>` | Who changed this file most |
 | `gwhen <file> [line]` | When was this file/line last changed |
 | `gfind <string>` | Search commit messages across all branches |
-| `gfind-code <string>` | Search diffs for when code was added/removed |
+| `gfind-code <string>` | Search diffs for added/removed code |
 | `gdiff-stat [branch]` | File-level diff stats vs default branch |
-| `gcontrib` | Your stats: commits, lines added/removed, files |
+| `gcontrib` | Your stats: commits, lines, files |
 
 ### Team
 
-| Command | What it does |
-|---------|-------------|
+| Alias | What it does |
+|-------|-------------|
 | `gteam` | Active branches with last commit and author |
 | `gstale [days]` | Branches with no commits in N+ days (default 14) |
-| `gleaderboard [days]` | Commit leaderboard for the last N days |
+| `gleaderboard [days]` | Commit leaderboard for last N days |
 | `gdash` | Full repo dashboard in one command |
 
 ### Cleanup
 
-| Command | What it does |
-|---------|-------------|
+| Alias | What it does |
+|-------|-------------|
 | `gclean` | Delete merged local branches (with confirmation) |
 | `gclean-files` | Remove untracked files (with confirmation) |
 | `greset-hard` | Reset branch to match remote (with confirmation) |
@@ -241,32 +235,34 @@ gwhen src/auth.py 42   # who last touched line 42?
 
 ## Git Config Extras
 
-Sane defaults that most engineers should have. The installer adds these to your
-global config, or do it manually:
+The installer adds sane defaults to your global config via `include.path`. You can also add them manually:
 
 ```bash
 git config --global include.path /path/to/ai-bu-git-productivity/gitconfig-extras
 ```
 
-What it sets:
-- `diff.algorithm = histogram` -- cleaner diffs
-- `merge.conflictstyle = zdiff3` -- better conflict markers
-- `rebase.autoStash = true` -- no more "stash before rebase"
-- `push.autoSetupRemote = true` -- no more "no upstream" error
-- `rerere.enabled = true` -- remembers conflict resolutions
-- `core.fsmonitor = true` -- faster status on large repos
+| Setting | Why |
+|---------|-----|
+| `diff.algorithm = histogram` | Cleaner diffs |
+| `merge.conflictstyle = zdiff3` | Better conflict markers |
+| `rebase.autoStash = true` | No more "stash before rebase" |
+| `push.autoSetupRemote = true` | No more "no upstream" errors |
+| `rerere.enabled = true` | Remembers conflict resolutions |
+| `core.fsmonitor = true` | Faster status on large repos |
 
 ## Hooks
 
 Optional, per-repo. Bypass any hook with `--no-verify`.
 
-- **pre-commit** -- Blocks `.env` files, large files, conflict markers, secrets, debug statements. Warns on TODOs and trailing whitespace.
-- **commit-msg** -- Suggests conventional commit format based on staged files. Never blocks.
-- **pre-push** -- Warns on uncommitted changes. Blocks WIP commits to main/master.
+| Hook | Behavior |
+|------|----------|
+| **pre-commit** | Blocks `.env` files, large files, conflict markers, secrets, debug statements. Warns on TODOs and trailing whitespace. |
+| **commit-msg** | Suggests conventional commit format based on staged files. Never blocks. |
+| **pre-push** | Warns on uncommitted changes. Blocks WIP commits to main/master. |
 
 ## Workflows
 
-See [workflows.md](workflows.md) for copy-paste commands: fix a prod bug, undo a push to main, resolve rebase conflicts, prep for standup, etc.
+See [workflows.md](workflows.md) for copy-paste recipes: fix a prod bug, undo a push to main, resolve rebase conflicts, prep for standup, and more.
 
 ## Requirements
 
