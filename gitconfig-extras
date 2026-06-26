@@ -1,0 +1,64 @@
+# ai-bu-git-productivity/gitconfig-extras
+# Useful git configuration settings for a smoother workflow.
+#
+# To apply these settings globally, run:
+#   git config --global include.path /path/to/ai-bu-git-productivity/gitconfig-extras
+#
+# Or cherry-pick individual settings with git config --global.
+
+[init]
+	defaultBranch = main
+
+[diff]
+	# histogram is faster and produces cleaner diffs than the default myers
+	algorithm = histogram
+	# Show moved lines in a different color
+	colorMoved = default
+
+[merge]
+	# zdiff3 gives you the original text plus both sides, making conflicts easier to resolve
+	conflictstyle = zdiff3
+
+[rebase]
+	# Automatically stash and pop uncommitted changes when rebasing
+	autoStash = true
+
+[pull]
+	# Rebase instead of merge when pulling
+	rebase = true
+
+[push]
+	# Push the current branch to a remote branch with the same name
+	default = current
+	# Automatically set up tracking on first push
+	autoSetupRemote = true
+
+[fetch]
+	# Remove remote-tracking branches that no longer exist on the remote
+	prune = true
+
+[rerere]
+	# Remember how you resolved merge conflicts and auto-apply next time
+	enabled = true
+
+[alias]
+	# Short status
+	st = status -sb
+	# Amend the last commit without editing the message
+	amend = commit --amend --no-edit
+	# Show the last commit
+	last = log -1 --stat
+	# List branches sorted by last commit date
+	recent = branch --sort=-committerdate --format='%(committerdate:short) %(refname:short)'
+	# Interactive rebase on the last N commits (usage: git rb 5)
+	rb = "!f() { git rebase -i HEAD~${1:-5}; }; f"
+	# Show a compact diff summary
+	ds = diff --stat
+	# Stash everything including untracked files
+	stash-all = stash push --include-untracked
+	# List all aliases
+	aliases = config --get-regexp ^alias\\.
+
+[core]
+	# Use a global gitignore if one exists
+	excludesFile = ~/.gitignore_global

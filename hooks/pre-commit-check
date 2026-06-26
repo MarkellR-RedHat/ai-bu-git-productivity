@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# ai-bu-git-productivity/hooks/pre-commit-check
+# A simple pre-commit hook that catches common mistakes before they land.
+#
+# Install by copying to .git/hooks/pre-commit (or use install.sh):
+#   cp hooks/pre-commit-check .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+
+set -euo pipefail
+
+errors=0
+
+# ─── Check for .env files ────────────────────────────────────────────────────
+env_files=$(git diff --cached --name-only | grep -E '\.env($|\.)' || true)
+if [ -n "$env_files" ]; then
+  echo "ERROR: Attempting to commit .env file(s):"
+  echo "$env_files"
+  echo "These files often contain secrets. Add them to .gitignore instead."
+  echo ""
+  errors=$((errors + 1))
+fi
+
+# ─── Check for large files (over 5 MB) ───────────────────────────────────────
+large_file_limit=5242880  # 5 MB in bytes
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  # Skip deleted files
+  if [ ! -f "$file" ]; then
+    continue
+  fi
+  file_size=$(wc -c < "$file" | tr -d ' ')
+  if [ "$file_size" -gt "$large_file_limit" ]; then
+    size_mb=$(echo "scale=1; $file_size / 1048576" | bc)
+    echo "ERROR: File '$file' is ${size_mb}MB, which exceeds the 5MB limit."
+    echo "Consider using Git LFS for large files."
+    echo ""
+    errors=$((errors + 1))
+  fi
+done <<< "$(git diff --cached --name-only --diff-filter=d)"
+
+# ─── Check for merge conflict markers ────────────────────────────────────────
+conflict_files=""
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  if [ ! -f "$file" ]; then
+    continue
+  fi
+  if grep -qE '^(<{7}|>{7}|={7})' "$file" 2>/dev/null; then
+    conflict_files="$conflict_files $file"
+  fi
+done <<< "$(git diff --cached --name-only --diff-filter=d)"
+
+if [ -n "$conflict_files" ]; then
+  echo "ERROR: Merge conflict markers found in:"
+  for f in $conflict_files; do
+    echo "  $f"
+  done
+  echo "Resolve all conflicts before committing."
+  echo ""
+  errors=$((errors + 1))
+fi
+
+# ─── Check for common credential file patterns ───────────────────────────────
+cred_files=$(git diff --cached --name-only | grep -iE '(credentials|secret|private.key|\.pem$|\.p12$|id_rsa)' || true)
+if [ -n "$cred_files" ]; then
+  echo "WARNING: Potentially sensitive file(s) staged for commit:"
+  echo "$cred_files"
+  echo "Double-check that these do not contain secrets."
+  echo ""
+  # This is a warning, not a hard block
+fi
+
+# ─── Summary ─────────────────────────────────────────────────────────────────
+if [ "$errors" -gt 0 ]; then
+  echo "Pre-commit check failed with $errors error(s). Fix the issues above and try again."
+  exit 1
+fi
+
+exit 0
