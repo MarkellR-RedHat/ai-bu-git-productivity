@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/hooks/commit-msg
-# Validates commit message quality before finalizing.
+# Validates commit messages for quality and conventional commit format.
 #
-# Install by copying to .git/hooks/commit-msg (or use install.sh):
+# Enforces:
+#   - Conventional commit format: type(scope): description
+#     Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+#   - Subject line under 72 characters
+#   - Minimum 10 characters for the description
+#   - No period at the end of the subject line
+#
+# Skips validation for:
+#   - Merge commits, reverts, WIP, fixup, squash (auto-generated messages)
+#
+# Install:
 #   cp hooks/commit-msg .git/hooks/commit-msg
 #   chmod +x .git/hooks/commit-msg
 
@@ -11,35 +21,80 @@ set -euo pipefail
 MSG_FILE="$1"
 MSG=$(head -1 "$MSG_FILE")
 
-# Strip leading whitespace for checking
+# Strip leading whitespace
 MSG_TRIMMED=$(echo "$MSG" | sed 's/^[[:space:]]*//')
 
-# ─── Ignore auto-generated messages (merge, revert, WIP) ─────────────────────
-if echo "$MSG_TRIMMED" | grep -qE '^(Merge|Revert|WIP:|fixup!|squash!)'; then
+# Skip auto-generated messages
+if echo "$MSG_TRIMMED" | grep -qE '^(Merge|Revert|WIP:|fixup!|squash!|Initial commit)'; then
   exit 0
 fi
 
+errors=0
 warnings=0
 
-# ─── Check minimum length ────────────────────────────────────────────────────
-msg_len=${#MSG_TRIMMED}
-if [ "$msg_len" -lt 10 ]; then
-  echo "WARNING: Commit message is too short ($msg_len chars). Aim for at least 10 characters."
-  echo "  Your message: \"$MSG_TRIMMED\""
-  warnings=$((warnings + 1))
-fi
+# ---- Check conventional commit format --------------------------------------
+# Expected format: type(optional-scope): description
+# Examples:
+#   feat: add user authentication
+#   fix(api): handle timeout on retry
+#   docs: update installation guide
 
-# ─── Check that it starts with a capital letter ──────────────────────────────
-first_char=$(echo "$MSG_TRIMMED" | cut -c1)
-if ! echo "$first_char" | grep -q '[A-Z]'; then
-  echo "WARNING: Commit message should start with a capital letter."
-  echo "  Your message: \"$MSG_TRIMMED\""
-  warnings=$((warnings + 1))
-fi
+VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
 
-if [ "$warnings" -gt 0 ]; then
+if ! echo "$MSG_TRIMMED" | grep -qE "^(${VALID_TYPES})(\([a-zA-Z0-9_-]+\))?: .+"; then
+  echo "ERROR: Commit message does not follow conventional commit format."
   echo ""
-  echo "Commit will proceed, but consider improving your message next time."
+  echo "  Expected:  type(scope): description"
+  echo "  Got:       $MSG_TRIMMED"
+  echo ""
+  echo "  Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+  echo ""
+  echo "  Examples:"
+  echo "    feat: add user authentication"
+  echo "    fix(api): handle timeout on retry"
+  echo "    docs: update installation guide"
+  echo ""
+  errors=$((errors + 1))
+fi
+
+# ---- Check subject line length ---------------------------------------------
+msg_len=${#MSG_TRIMMED}
+
+if [ "$msg_len" -gt 72 ]; then
+  echo "WARNING: Subject line is $msg_len characters (recommended max is 72)."
+  echo "  Move details to the commit body instead."
+  echo ""
+  warnings=$((warnings + 1))
+fi
+
+# ---- Check minimum description length --------------------------------------
+# Extract the description part (after "type(scope): ")
+description=$(echo "$MSG_TRIMMED" | sed -E "s/^(${VALID_TYPES})(\([a-zA-Z0-9_-]+\))?: //" 2>/dev/null || echo "$MSG_TRIMMED")
+desc_len=${#description}
+
+if [ "$desc_len" -lt 10 ]; then
+  echo "WARNING: Description is too short ($desc_len chars). Aim for at least 10 characters."
+  echo "  Your message: \"$MSG_TRIMMED\""
+  echo ""
+  warnings=$((warnings + 1))
+fi
+
+# ---- Check for trailing period ----------------------------------------------
+if echo "$MSG_TRIMMED" | grep -qE '\.$'; then
+  echo "WARNING: Subject line should not end with a period."
+  echo ""
+  warnings=$((warnings + 1))
+fi
+
+# ---- Summary ----------------------------------------------------------------
+if [ "$warnings" -gt 0 ]; then
+  echo "Commit message: $warnings warning(s). Consider improving your message."
+fi
+
+if [ "$errors" -gt 0 ]; then
+  echo "Commit message: REJECTED. Fix the format and try again."
+  echo "To skip this check (not recommended): git commit --no-verify"
+  exit 1
 fi
 
 exit 0

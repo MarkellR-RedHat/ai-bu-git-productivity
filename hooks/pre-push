@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# ai-bu-git-productivity/hooks/pre-push
+# Quick validation before pushing to a remote.
+#
+# What it checks:
+#   - Are there uncommitted changes? (warns so you don't forget something)
+#   - Are there WIP commits being pushed? (blocks push to main/master)
+#   - Is the push target a protected branch? (confirms before pushing to main/master)
+#
+# Install:
+#   cp hooks/pre-push .git/hooks/pre-push
+#   chmod +x .git/hooks/pre-push
+#
+# To skip this check: git push --no-verify
+
+set -euo pipefail
+
+REMOTE="$1"
+
+errors=0
+warnings=0
+
+current_branch=$(git branch --show-current 2>/dev/null || echo "")
+
+# ---- Check for uncommitted changes -----------------------------------------
+if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+  echo "WARNING: You have uncommitted changes."
+  echo "  These changes will NOT be included in this push."
+  echo "  Stage and commit them first if they should be included."
+  echo ""
+  warnings=$((warnings + 1))
+fi
+
+# ---- Check for untracked files ---------------------------------------------
+untracked_count=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+if [ "$untracked_count" -gt 0 ]; then
+  echo "NOTE: $untracked_count untracked file(s) in your working tree."
+  echo ""
+fi
+
+# ---- Detect pushes to protected branches ------------------------------------
+# Read stdin for ref info (provided by git)
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Extract the branch name from the remote ref
+  push_branch=$(echo "$remote_ref" | sed 's|refs/heads/||')
+
+  case "$push_branch" in
+    main|master)
+      echo "WARNING: You are pushing directly to '$push_branch' on $REMOTE."
+      echo ""
+
+      # Check for WIP commits in the push range
+      if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        wip_commits=$(git log --oneline "$local_sha" 2>/dev/null | grep -i "^[a-f0-9]* WIP" || true)
+      else
+        wip_commits=$(git log --oneline "$remote_sha".."$local_sha" 2>/dev/null | grep -i "^[a-f0-9]* WIP" || true)
+      fi
+
+      if [ -n "$wip_commits" ]; then
+        echo "BLOCKED: WIP commits found in this push:"
+        echo "$wip_commits"
+        echo ""
+        echo "Squash or reword your WIP commits before pushing to $push_branch."
+        errors=$((errors + 1))
+      fi
+      ;;
+  esac
+done
+
+# ---- Summary ----------------------------------------------------------------
+if [ "$warnings" -gt 0 ]; then
+  echo "Pre-push: $warnings warning(s). Review the messages above."
+fi
+
+if [ "$errors" -gt 0 ]; then
+  echo "Pre-push: FAILED with $errors error(s). Fix the issues above and try again."
+  echo "To skip this check: git push --no-verify"
+  exit 1
+fi
+
+exit 0

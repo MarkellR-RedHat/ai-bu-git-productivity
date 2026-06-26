@@ -1,6 +1,8 @@
 # ai-bu-git-productivity
 
-A collection of shell aliases, functions, and git configurations that speed up daily git workflows. Built for engineers who spend serious time in the terminal.
+Shell aliases, git config, and hooks that make git actually fast to use. Built for
+engineers who live in the terminal and are tired of typing the same long commands
+over and over.
 
 ## Quick Start
 
@@ -10,123 +12,121 @@ cd ai-bu-git-productivity
 bash install.sh
 ```
 
-The installer will:
-1. Add the aliases to your `.zshrc` or `.bashrc`
-2. Detect conflicts with any existing aliases you have defined
-3. Optionally include the gitconfig extras in your global git config
-4. Optionally install the pre-commit hook in the current repo
-5. Optionally install the commit-msg hook in the current repo
+The installer is interactive. It detects your shell (bash/zsh/fish), previews
+each component, lets you pick what you want, and backs up your existing configs
+before changing anything.
 
-## Shell Aliases and Functions
+## The 10 Aliases That Will Change Your Workflow
 
-Source `aliases.sh` in your shell config to get all of these commands.
+These are the commands people use most. Once you get used to them, going back
+feels painful.
 
-### Quick Reference Table
+### 1. `gs` instead of `git status`
 
-| Command | What it does | Example |
-|---------|-------------|---------|
-| `glog` | Pretty git log with graph | `glog` |
-| `gweek` | Show your commits from the past week | `gweek` |
-| `gtoday` | Show what you committed today | `gtoday` |
-| `gcontrib` | Your contribution stats (commits, lines, files) | `gcontrib` |
-| `gfind <keyword>` | Search commit messages by keyword | `gfind "retry"` |
-| `gchanged [N]` | Files changed in the last N commits (default 5) | `gchanged 10` |
-| `gdash` | Full repo dashboard in one command | `gdash` |
-| `gstale` | Find local branches with no commits in 30+ days | `gstale` |
-| `gclean` | Delete merged local branches (with confirmation) | `gclean` |
-| `gpr [title]` | Create a PR with the gh CLI | `gpr "Fix auth bug"` |
-| `greview` | List PRs assigned to you for review | `greview` |
-| `gblame-who <file>` | Who contributed the most to a file | `gblame-who src/main.py` |
-| `gdiff-stat [branch] [base]` | File-level diff stats vs a base branch | `gdiff-stat feature-x main` |
-| `grebase-main` | Fetch and rebase on main/master (auto-detects) | `grebase-main` |
-| `gundo` | Safely undo the last commit (keeps changes staged) | `gundo` |
-| `gwip` | Quick work-in-progress commit | `gwip` |
-| `gunwip` | Undo the last WIP commit | `gunwip` |
-| `gopen` | Open the current repo in your browser | `gopen` |
-
-### Detailed Descriptions
-
-#### `glog`
-
-Pretty git log with graph, one line per commit, across all branches.
-
+**Before:**
+```bash
+git status
 ```
-$ glog
-* a1b2c3d (HEAD -> main) Add retry logic
-* d4e5f6a Refactor auth module
-| * 7g8h9i0 (feature/dashboard) WIP: dashboard layout
+
+**After:**
+```bash
+gs
+## main...origin/main [ahead 2]
+ M src/auth.py
+?? notes.txt
+```
+
+Short output with branch info and ahead/behind count. You will type this 50 times a day.
+
+### 2. `glog` instead of `git log`
+
+**Before:**
+```bash
+git log --oneline --graph --decorate --all
+```
+
+**After:**
+```bash
+glog
+* a1b2c3d (HEAD -> main) feat: add retry logic  (2 hours ago) <Jane>
+| * d4e5f6a (feature/dashboard) WIP: layout       (5 hours ago) <Bob>
 |/
-* j1k2l3m Initial commit
+* 7g8h9i0 fix: auth timeout                       (yesterday) <Jane>
 ```
 
-#### `gweek`
+Color-coded graph with relative dates and author names. No more guessing
+what the `--format` flags are.
 
-Show all your commits from the past week, across every branch.
+### 3. `gwip` / `gunwip` for work-in-progress
 
-```
-$ gweek
-Commits by Jane Engineer this week:
-
-a1b2c3d 2026-06-25 Add retry logic
-d4e5f6a 2026-06-24 Refactor auth module
-```
-
-#### `gtoday`
-
-Show what you committed today. Useful for standups.
-
-```
-$ gtoday
-Commits by Jane Engineer today:
-
-a1b2c3d 2026-06-26 Add retry logic
+**Before:**
+```bash
+git add -A
+git commit -m "WIP"
+# later...
+git reset --soft HEAD~1
 ```
 
-#### `gcontrib`
-
-Show your contribution stats for the current repo: total commits, lines added, lines removed, and files touched.
-
-```
-$ gcontrib
-Contribution stats for Jane Engineer:
-
-  Commits:  42
-  Added:    +3800 lines
-  Removed:  -1200 lines
-  Files:    85 touched
+**After:**
+```bash
+gwip                   # stages everything, commits as WIP [skip ci]
+gunwip                 # undoes the WIP commit, leaves changes staged
 ```
 
-#### `gfind`
+Save your work before switching branches. Pick up exactly where you left off.
 
-Search all commit messages for a keyword. Searches across all branches.
+### 4. `gpush` instead of the first-push dance
 
-```
-$ gfind "retry"
-Commits matching "retry":
-
-a1b2c3d Add retry logic to API client
-f4e5d6c Remove old retry workaround
-```
-
-#### `gchanged`
-
-Show the files that changed in the last N commits (defaults to 5).
-
-```
-$ gchanged 3
-Files changed in the last 3 commit(s):
-
-src/auth.py
-src/client.py
-tests/test_client.py
+**Before:**
+```bash
+git push
+# fatal: The current branch feature/foo has no upstream branch.
+git push --set-upstream origin feature/foo
 ```
 
-#### `gdash`
-
-A full dashboard of your repo state in one command. Shows your current branch, ahead/behind status relative to the remote, uncommitted changes, recent commits, and open PRs.
-
+**After:**
+```bash
+gpush                  # pushes and sets upstream automatically
 ```
-$ gdash
+
+No more copying the suggested command from the error message.
+
+### 5. `grebase-main` to stay current
+
+**Before:**
+```bash
+git fetch origin main
+git rebase origin/main
+# or was it master? Let me check...
+```
+
+**After:**
+```bash
+grebase-main           # auto-detects main vs master, fetches, rebases
+```
+
+Works on repos that use `main` and repos that use `master`. No thinking required.
+
+### 6. `pr-create` for pull requests
+
+**Before:**
+```bash
+git push -u origin feature/add-auth-retry
+gh pr create --title "Add auth retry" --fill
+```
+
+**After:**
+```bash
+pr-create              # auto-pushes, generates title from branch name
+```
+
+Your branch name `feature/add-auth-retry` becomes PR title "Add auth retry"
+automatically. Override it if you want, or just press Enter.
+
+### 7. `gdash` for the full picture
+
+```bash
+gdash
 ========================================
   Git Dashboard
 ========================================
@@ -136,215 +136,249 @@ Remote:  origin/feature/auth-retry (ahead 2 / behind 0)
 
 --- Uncommitted Changes ---
   M src/client.py
-  ?? notes.txt
+
+--- Stashes: 1 ---
+  stash@{0}: On main: quick experiment
 
 --- Recent Commits (last 5) ---
-  a1b2c3d Add retry logic
-  d4e5f6a Refactor auth module
-  7g8h9i0 Fix token refresh
-  j1k2l3m Update README
-  m4n5o6p Initial commit
+  a1b2c3d feat: add retry logic        (2 hours ago)
+  d4e5f6a refactor: extract auth module (yesterday)
 
 --- Open PRs (this repo) ---
   #12  Add retry logic  feature/auth-retry  OPEN
-  #10  Fix dashboard     feature/dashboard   OPEN
 
 ========================================
 ```
 
-#### `gstale`
+Everything you need to know about your repo in one command.
 
-Find local branches that have not had a commit in over 30 days. Useful for periodic cleanup.
+### 8. `gwho` to investigate ownership
 
-```
-$ gstale
-Local branches with no commits in the last 30 days:
-
-  2026-04-10  old-experiment
-  2026-05-01  abandoned-feature
-```
-
-#### `gclean`
-
-Delete local branches that have already been merged. Prompts for confirmation before deleting anything.
-
-```
-$ gclean
-The following merged branches will be deleted:
-  bugfix/typo
-  feature/done
-
-Proceed? [y/N] y
-Done.
-```
-
-#### `gpr`
-
-Create a pull request quickly using the `gh` CLI. Pass a title as an argument, or enter it interactively.
-
+**Before:**
 ```bash
-gpr "Add retry logic to API client"
+git log --format='%aN' -- src/auth.py | sort | uniq -c | sort -rn | head -10
 ```
 
-#### `greview`
-
-List open PRs that are assigned to you for review.
-
-```
-$ greview
-PRs waiting for your review:
-
-#15  Update config schema  main  REVIEW REQUIRED
-#12  Add retry logic       main  REVIEW REQUIRED
-```
-
-#### `gblame-who`
-
-Show who has contributed the most commits to a specific file.
-
-```
-$ gblame-who src/main.py
-Top contributors to src/main.py:
+**After:**
+```bash
+gwho src/auth.py
+Top contributors to src/auth.py:
 
   15 Jane Engineer
    8 Bob Developer
    3 Alice Reviewer
 ```
 
-#### `gdiff-stat`
+Know who to ask about a file before you start changing it.
 
-Display file-level diff statistics for a branch compared to main (or any other base branch).
+### 9. `pr-cleanup` to stay tidy
 
-```
-$ gdiff-stat feature-branch
-Diff stats for feature-branch vs main:
-
- src/auth.py   | 42 +++++++++++++-------
- src/client.py | 18 ++++++---
- 2 files changed, 38 insertions(+), 22 deletions(-)
-```
-
-#### `grebase-main`
-
-Fetch the latest changes and rebase your current branch onto main (or master). Automatically detects which is the default branch.
-
-```
-$ grebase-main
-Fetching origin and rebasing feature/auth-retry onto origin/main...
-Rebase complete.
+**Before:**
+```bash
+git checkout main
+git pull
+git branch --merged | grep -v main | xargs git branch -d
+# then manually delete each one from the remote too
 ```
 
-#### `gundo`
-
-Safely undo the last commit. Your changes stay staged so nothing is lost.
-
-```
-$ gundo
-Undoing commit: Add retry logic
-Changes are back in staging. Nothing was lost.
+**After:**
+```bash
+pr-cleanup             # switches to main, deletes merged branches, offers to clean remote too
 ```
 
-#### `gwip` / `gunwip`
+Run this at the end of every sprint. Takes 5 seconds.
 
-Create a quick work-in-progress commit with all current changes. The commit message includes `[skip ci]` to avoid triggering CI pipelines. Use `gunwip` to undo it.
+### 10. `gfind` to search history
 
-```
-$ gwip
-[feature/auth 4a5b6c7] WIP: work in progress [skip ci]
-
-$ gunwip
-WIP commit removed. Changes are staged.
+**Before:**
+```bash
+git log --all --oneline --grep="retry"
 ```
 
-#### `gopen`
+**After:**
+```bash
+gfind "retry"
+Commits matching "retry":
 
-Open the current repo in your browser. Works with GitHub SSH and HTTPS remotes.
+a1b2c3d feat: add retry logic to API client  (2 hours ago) <Jane>
+f4e5d6c fix: remove old retry workaround      (3 weeks ago) <Bob>
+```
 
-```
-$ gopen
-Opening https://github.com/your-org/your-repo
-```
+Search commit messages across all branches with color-coded output.
+
+## Full Command Reference
+
+### Daily Workflow
+
+| Command | What it does |
+|---------|-------------|
+| `gs` | Git status with branch info and ahead/behind count |
+| `glog` | One-line log with colors, graph, and relative dates |
+| `glog1` | Condensed log, last 20 commits, no graph |
+| `gtoday` | Your commits from today (great for standups) |
+| `gweek` | Your commits from the past week |
+| `gc "msg"` | Stage all + commit in one shot |
+| `gwip` | Quick WIP commit that skips CI |
+| `gunwip` | Undo the last WIP commit |
+| `gundo` | Safely undo the last commit (keeps changes staged) |
+| `gpush` | Push and set upstream in one command |
+| `gpull` | Pull with rebase |
+| `gfetch` | Fetch all remotes and prune stale branches |
+| `grebase-main` | Fetch + rebase onto main/master (auto-detects) |
+| `gco` | Checkout branch (uses fzf for interactive selection if available) |
+| `gcb <name>` | Create and switch to a new branch |
+| `gstash [msg]` | Stash everything including untracked files |
+| `gstash-pop` | Pop the most recent stash |
+| `gopen` | Open the repo in your browser |
+
+### PR Workflow
+
+| Command | What it does |
+|---------|-------------|
+| `pr-create` | Create PR, auto-fill title from branch name |
+| `pr-draft` | Create a draft PR |
+| `pr-ready [reviewers]` | Mark draft as ready, optionally request reviewers |
+| `pr-cleanup` | Delete merged branches locally and remotely |
+| `pr-stack` | Show your open PRs with review status |
+| `pr-checkout <num>` | Check out a PR branch by number |
+| `pr-diff [num]` | View PR diff in terminal |
+| `greview` | PRs waiting for your review |
+
+### Investigation
+
+| Command | What it does |
+|---------|-------------|
+| `gwho <file>` | Who changed this file most (by commit count) |
+| `gwhen <file> [line]` | When was this file/line last changed (formatted blame) |
+| `gfind <string>` | Search commit messages for a string |
+| `gfind-code <string>` | Search code diffs for when a string was added/removed |
+| `gdiff-words` | Word-level diff (great for prose and config) |
+| `gdiff-stat [branch]` | File-level diff stats vs default branch |
+| `gcontrib` | Your contribution stats (commits, lines, files) |
+| `gchanged [N]` | Files changed in the last N commits |
+
+### Team
+
+| Command | What it does |
+|---------|-------------|
+| `gteam` | Active branches with last commit and author |
+| `gstale [days]` | Branches with no commits in N+ days (default 14) |
+| `gleaderboard [days]` | Commit leaderboard for the last N days |
+
+### Cleanup
+
+| Command | What it does |
+|---------|-------------|
+| `gclean` | Delete merged local branches (with confirmation) |
+| `gclean-files` | Remove untracked files (with confirmation) |
+| `greset-hard` | Reset branch to match remote (with confirmation) |
+
+### Quick Shortcuts
+
+| Shortcut | Expands to |
+|----------|-----------|
+| `ga` | `git add` |
+| `gaa` | `git add -A` |
+| `gd` | `git diff` |
+| `gds` | `git diff --staged` |
+| `gb` | `git branch` |
+| `gba` | `git branch -a` |
+| `gm` | `git merge` |
+| `gap` | `git add -p` (interactive patch mode) |
+| `gamend` | Amend last commit, keep message |
+| `gamend-msg` | Amend last commit, edit message |
 
 ## Git Config Extras
 
-The `gitconfig-extras` file contains recommended git settings. You can include it globally:
+The `gitconfig-extras` file includes settings that most engineers should have
+but few know about. Include it globally:
 
 ```bash
 git config --global include.path /path/to/ai-bu-git-productivity/gitconfig-extras
 ```
 
-What it configures:
+**Performance:**
+- `core.fsmonitor = true` - filesystem event monitor for faster `git status`
+- `core.untrackedCache = true` - cached untracked file list
+- `fetch.writeCommitGraph = true` - faster log traversal after fetch
+- `feature.manyFiles = true` - optimizations for repos with lots of files
 
-| Setting | What it does |
-|---------|-------------|
-| `diff.algorithm = histogram` | Produces cleaner, faster diffs |
-| `merge.conflictstyle = zdiff3` | Shows the original text alongside both sides of a conflict |
-| `rebase.autoStash = true` | Automatically stashes uncommitted changes before rebase |
-| `pull.rebase = true` | Rebase instead of merge on pull |
-| `push.default = current` | Push to a remote branch with the same name |
-| `push.autoSetupRemote = true` | Auto-set upstream tracking on first push |
-| `fetch.prune = true` | Clean up stale remote-tracking branches on fetch |
-| `rerere.enabled = true` | Remember conflict resolutions and reapply them automatically |
+**Better defaults:**
+- `diff.algorithm = histogram` - cleaner diffs
+- `merge.conflictstyle = zdiff3` - easier conflict resolution
+- `rebase.autoStash = true` - auto-stash during rebase
+- `push.autoSetupRemote = true` - no more `--set-upstream`
+- `rerere.enabled = true` - remembers conflict resolutions
+- `pull.rebase = true` - rebase on pull instead of merge
 
-It also includes a set of short git aliases:
-
-- `git st` for short status
-- `git amend` to amend without editing the message
-- `git last` to show the last commit
-- `git recent` to list branches by last commit date
-- `git rb N` for interactive rebase on the last N commits
-- `git ds` for compact diff summary
-- `git stash-all` to stash including untracked files
-- `git aliases` to list all configured aliases
+**Git aliases** (these work as `git <alias>`):
+- `git st` - short status
+- `git amend` - amend without editing message
+- `git recent` - branches by last commit date
+- `git rb 5` - interactive rebase on last 5 commits
+- `git who <file>` - who contributed most to a file
+- `git backup` - create a backup tag before risky operations
+- `git root` - show repo root directory
 
 ## Hooks
 
-### Pre-Commit Hook
+All hooks are optional and installed per-repo. Each one can be skipped with
+`--no-verify` when you have a legitimate reason.
 
-The `hooks/pre-commit-check` script catches common mistakes before they land in your history:
+### Pre-commit Hook
+
+Catches common mistakes before they land in history.
 
 | Check | Behavior |
 |-------|----------|
 | `.env` files | Blocks commit |
 | Files over 5 MB | Blocks commit |
 | Merge conflict markers | Blocks commit |
-| AWS keys or tokens | Blocks commit |
-| Credential-like files (.pem, .p12, private keys) | Warns |
-| TODO/FIXME/HACK markers | Warns |
+| AWS keys, API tokens, private keys | Blocks commit |
+| `console.log`, `debugger`, `binding.pry` | Blocks commit |
+| Credential-like files (.pem, .p12) | Warns |
+| TODO/FIXME/HACK in new code | Warns |
 | Trailing whitespace | Warns |
 
-Install it manually:
+### Commit-msg Hook
 
-```bash
-cp hooks/pre-commit-check .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
-```
-
-### Commit-Msg Hook
-
-The `hooks/commit-msg` script validates commit message quality:
+Enforces conventional commit format for consistent, parseable history.
 
 | Check | Behavior |
 |-------|----------|
-| Message under 10 characters | Warns |
-| Message does not start with a capital letter | Warns |
+| Not conventional format (`type: description`) | Blocks commit |
+| Subject line over 72 characters | Warns |
+| Description under 10 characters | Warns |
+| Trailing period on subject | Warns |
 
-Auto-generated messages (merges, reverts, WIP, fixup, squash) are skipped.
+Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 
-Install it manually:
+### Pre-push Hook
 
-```bash
-cp hooks/commit-msg .git/hooks/commit-msg
-chmod +x .git/hooks/commit-msg
-```
+Last line of defense before code goes to the remote.
 
-Or let `install.sh` handle both hooks for you.
+| Check | Behavior |
+|-------|----------|
+| WIP commits being pushed to main/master | Blocks push |
+| Uncommitted local changes | Warns |
+| Untracked files | Notes |
+
+## Workflows Reference
+
+See [workflows.md](workflows.md) for complete step-by-step guides:
+- Feature branch workflow
+- Hotfix workflow
+- Release workflow
+- "I pushed to main by accident" recovery
+- "I force-pushed and lost commits" recovery
+- Rebase vs merge: when to use which
 
 ## Requirements
 
 - Git 2.x or later
-- Bash or Zsh
-- [gh CLI](https://cli.github.com) (optional, needed for `gpr`, `greview`, and the PR section of `gdash`)
+- Bash or Zsh (fish works with the [bass](https://github.com/edc/bass) plugin)
+- [gh CLI](https://cli.github.com) (optional, needed for PR commands and dashboard PR section)
+- [fzf](https://github.com/junegunn/fzf) (optional, enables interactive branch selection with `gco`)
 
 ## License
 

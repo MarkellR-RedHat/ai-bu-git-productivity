@@ -6,47 +6,150 @@
 #
 # Or cherry-pick individual settings with git config --global.
 
+# -----------------------------------------------------------------------------
+# Core settings
+# -----------------------------------------------------------------------------
 [init]
 	defaultBranch = main
 
+[core]
+	# Use a global gitignore if one exists
+	excludesFile = ~/.gitignore_global
+	# Prevent issues with files that only differ by case on case-insensitive systems
+	ignoreCase = false
+	# Speed up status/diff on macOS by using the filesystem event monitor
+	fsmonitor = true
+	# Preload file contents in parallel for faster diffs on multi-core machines
+	preloadIndex = true
+	# Enable the untracked cache to speed up `git status` on large repos
+	untrackedCache = true
+
+# -----------------------------------------------------------------------------
+# Diff and merge
+# -----------------------------------------------------------------------------
 [diff]
-	# histogram is faster and produces cleaner diffs than the default myers
+	# histogram is faster and produces cleaner diffs than the default myers algorithm
 	algorithm = histogram
-	# Show moved lines in a different color
+	# Show moved lines in a different color so you can tell moves from edits
 	colorMoved = default
+	# Show the function name in diff headers for better context
+	mnemonicPrefix = true
+	# Detect renames (even with modifications) during diff
+	renames = copies
 
 [merge]
 	# zdiff3 gives you the original text plus both sides, making conflicts easier to resolve
 	conflictstyle = zdiff3
+	# Show a summary of diffstat after merge
+	stat = true
 
+# -----------------------------------------------------------------------------
+# Rebase, pull, push, fetch
+# -----------------------------------------------------------------------------
 [rebase]
 	# Automatically stash and pop uncommitted changes when rebasing
 	autoStash = true
+	# Preserve merge commits during rebase by default
+	rebaseMerges = true
+	# Auto-update refs that point to rebased commits
+	updateRefs = true
 
 [pull]
-	# Rebase instead of merge when pulling
+	# Rebase instead of merge when pulling (no more accidental merge commits)
 	rebase = true
 
 [push]
 	# Push the current branch to a remote branch with the same name
 	default = current
-	# Automatically set up tracking on first push
+	# Automatically set up tracking on first push (no more --set-upstream)
 	autoSetupRemote = true
+	# Push tags along with commits when they reference pushed commits
+	followTags = true
 
 [fetch]
 	# Remove remote-tracking branches that no longer exist on the remote
 	prune = true
+	# Also prune stale tags
+	pruneTags = true
+	# Write commit graph during fetch for faster log/merge-base operations
+	writeCommitGraph = true
 
+# -----------------------------------------------------------------------------
+# Conflict resolution memory
+# -----------------------------------------------------------------------------
 [rerere]
-	# Remember how you resolved merge conflicts and auto-apply next time
+	# Remember how you resolved merge conflicts and auto-apply the same resolution next time
 	enabled = true
+	# Auto-stage files that rerere resolved automatically
+	autoUpdate = true
 
+# -----------------------------------------------------------------------------
+# Performance tuning for large repos
+# -----------------------------------------------------------------------------
+[feature]
+	# Enable useful experimental features (manyFiles optimizations)
+	manyFiles = true
+
+[pack]
+	# Use more threads for packing (speeds up gc and push on large repos)
+	threads = 0
+
+[gc]
+	# Write commit graph during gc for faster log traversal
+	writeCommitGraph = true
+
+# -----------------------------------------------------------------------------
+# Color scheme (works on both light and dark terminals)
+# -----------------------------------------------------------------------------
+[color]
+	ui = auto
+
+[color "status"]
+	added = green
+	changed = yellow
+	untracked = red
+
+[color "branch"]
+	current = green bold
+	local = yellow
+	remote = cyan
+
+[color "diff"]
+	meta = cyan
+	frag = magenta bold
+	old = red
+	new = green
+	commit = yellow bold
+	whitespace = red reverse
+
+[color "diff-highlight"]
+	oldNormal = red
+	oldHighlight = red bold 52
+	newNormal = green
+	newHighlight = green bold 22
+
+# -----------------------------------------------------------------------------
+# Log formatting
+# -----------------------------------------------------------------------------
+[log]
+	# Show ref names in log output
+	decorate = short
+	# Abbreviate commit hashes
+	abbrevCommit = true
+
+[format]
+	# Nice default log format with color
+	pretty = format:%C(yellow)%h%C(auto)%d %C(reset)%s %C(cyan)(%cr) %C(blue)<%an>
+
+# -----------------------------------------------------------------------------
+# Aliases (complementary to aliases.sh, these work as `git <alias>`)
+# -----------------------------------------------------------------------------
 [alias]
-	# Short status
+	# Short status with branch info
 	st = status -sb
 	# Amend the last commit without editing the message
 	amend = commit --amend --no-edit
-	# Show the last commit
+	# Show the last commit with stats
 	last = log -1 --stat
 	# List branches sorted by last commit date
 	recent = branch --sort=-committerdate --format='%(committerdate:short) %(refname:short)'
@@ -56,9 +159,38 @@
 	ds = diff --stat
 	# Stash everything including untracked files
 	stash-all = stash push --include-untracked
-	# List all aliases
+	# List all configured aliases
 	aliases = config --get-regexp ^alias\\.
+	# Show who contributed the most to a file
+	who = "!f() { git log --format='%aN' -- \"$1\" | sort | uniq -c | sort -rn | head -10; }; f"
+	# Show branches that contain a specific commit
+	contains = branch -a --contains
+	# Show the root directory of the repo
+	root = rev-parse --show-toplevel
+	# Undo the last commit (keeps changes staged)
+	uncommit = reset --soft HEAD~1
+	# Show all files currently being tracked
+	tracked = ls-files
+	# Show the number of commits on the current branch vs the default
+	ahead = "!f() { echo \"$(git rev-list --count origin/$(git rev-parse --abbrev-ref HEAD)..HEAD 2>/dev/null || echo 0) commits ahead\"; }; f"
+	# Create a backup tag for the current state before risky operations
+	backup = "!f() { git tag \"backup/$(date +%Y%m%d-%H%M%S)\"; echo \"Backup tag created.\"; }; f"
+	# Word-level diff
+	wdiff = diff --word-diff=color
 
-[core]
-	# Use a global gitignore if one exists
-	excludesFile = ~/.gitignore_global
+# -----------------------------------------------------------------------------
+# URL shortcuts for common hosts
+# -----------------------------------------------------------------------------
+[url "git@github.com:"]
+	# Use SSH for GitHub push operations (faster than HTTPS)
+	pushInsteadOf = https://github.com/
+
+# -----------------------------------------------------------------------------
+# Transfer and protocol
+# -----------------------------------------------------------------------------
+[transfer]
+	# Check object integrity on transfer
+	fsckObjects = true
+
+[receive]
+	fsckObjects = true
