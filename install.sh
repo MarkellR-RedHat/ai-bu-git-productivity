@@ -73,6 +73,65 @@ DETECTED_SHELL=$(detect_shell)
 SHELL_CONFIG=$(detect_shell_config)
 
 # =============================================================================
+# Fish shell compatibility check
+# =============================================================================
+check_fish_compatibility() {
+  if [ "$DETECTED_SHELL" != "fish" ]; then
+    return 0
+  fi
+
+  # Check if bass is installed (required for bash-syntax aliases in fish)
+  if command -v fish &>/dev/null; then
+    if ! fish -c 'type -q bass' 2>/dev/null; then
+      warn "Fish detected but 'bass' plugin is not installed."
+      warn "Without bass, the bash-syntax aliases will not work in fish."
+      echo ""
+      echo "  Install bass first:"
+      echo "    fisher install edc/bass"
+      echo ""
+      printf "Continue anyway? [y/N] "
+      read -r answer
+      if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+        echo "Install bass, then re-run this script."
+        exit 1
+      fi
+    fi
+  fi
+}
+
+# =============================================================================
+# Default branch detection
+# =============================================================================
+detect_default_branch() {
+  # If we are inside a git repo, figure out the default branch name.
+  # This matters because hooks reference main/master and we need to
+  # verify our assumptions match the repo.
+  if ! git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
+    echo "main"
+    return
+  fi
+
+  local branch
+  branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
+  if [ -n "$branch" ]; then
+    echo "$branch"
+    return
+  fi
+
+  if git rev-parse --verify origin/main &>/dev/null; then
+    echo "main"
+  elif git rev-parse --verify origin/master &>/dev/null; then
+    echo "master"
+  elif git rev-parse --verify main &>/dev/null; then
+    echo "main"
+  elif git rev-parse --verify master &>/dev/null; then
+    echo "master"
+  else
+    echo "main"
+  fi
+}
+
+# =============================================================================
 # Backup function
 # =============================================================================
 backup_file() {
@@ -100,6 +159,7 @@ if [ "$DETECTED_SHELL" = "fish" ]; then
   echo "${YELLOW}NOTE: Fish detected. Aliases use bash/zsh syntax and need the bass plugin."
   echo "Bash or zsh recommended.${RESET}"
   echo ""
+  check_fish_compatibility
 fi
 
 if [ "$PREVIEW_ONLY" = true ]; then
@@ -176,7 +236,7 @@ if [ "$INSTALL_ALIASES" = true ]; then
   if grep -qF "$SOURCE_LINE" "$SHELL_CONFIG" 2>/dev/null; then
     ok "Already present in $SHELL_CONFIG. Skipping."
   else
-    # Check for conflicts with existing commands
+    # Check for conflicts with existing commands (binaries, scripts, other aliases)
     ALIAS_NAMES="gs glog glog1 gtoday gweek gc gwip gunwip gundo gstash gco gcb gpush gdash gclean grebase-main gopen pr-create pr-draft pr-ready pr-cleanup pr-stack greview gwho gwhen gfind gfind-code gdiff-stat gcontrib gchanged gstale gleaderboard gteam gcp greset-hard gclean-files pr-checkout pr-diff"
     conflicts=""
     for name in $ALIAS_NAMES; do
@@ -186,6 +246,33 @@ if [ "$INSTALL_ALIASES" = true ]; then
     done
     if [ -n "$conflicts" ]; then
       warn "Existing commands that will be shadowed:${YELLOW}$conflicts${RESET}"
+      echo ""
+    fi
+
+    # Check for conflicting shell aliases already defined in the config file
+    existing_aliases=""
+    for name in $ALIAS_NAMES; do
+      if grep -qE "^(alias ${name}=|${name}\(\))" "$SHELL_CONFIG" 2>/dev/null; then
+        existing_aliases="$existing_aliases $name"
+      fi
+    done
+    if [ -n "$existing_aliases" ]; then
+      warn "Shell aliases or functions already defined in $SHELL_CONFIG:${YELLOW}$existing_aliases${RESET}"
+      warn "The toolkit's versions will load AFTER your existing ones and take priority."
+      echo "  To keep your originals, comment out the source line after install."
+      echo ""
+    fi
+
+    # Check for git aliases in gitconfig that overlap with our shell aliases
+    git_alias_conflicts=""
+    for name in st amend last recent ds who uncommit; do
+      if git config --global --get "alias.$name" &>/dev/null; then
+        git_alias_conflicts="$git_alias_conflicts git-$name"
+      fi
+    done
+    if [ -n "$git_alias_conflicts" ]; then
+      info "Your global gitconfig already defines these git aliases:${CYAN}$git_alias_conflicts${RESET}"
+      echo "  The gitconfig-extras file may override them. Backups are saved."
       echo ""
     fi
 
@@ -276,16 +363,26 @@ install_hook() {
 
   if [ "$should_install" = true ]; then
     if [ -f "$hook_dest" ]; then
-      warn "A $hook_name hook already exists at $hook_dest."
-      backup_file "$hook_dest"
-      printf "  Replace it? [y/N] "
-      read -r answer
-      if [[ "$answer" =~ ^[Yy]$ ]]; then
+      # Check whether the existing hook is ours (from a previous install)
+      if grep -qF "ai-bu-git-productivity" "$hook_dest" 2>/dev/null; then
+        info "Existing $hook_name hook is from a previous install. Updating."
         cp "$hook_source" "$hook_dest"
         chmod +x "$hook_dest"
-        ok "Installed $hook_name hook (replaced existing, backup saved)."
+        ok "Updated $hook_name hook."
       else
-        warn "Skipped. Existing hook preserved."
+        warn "A $hook_name hook already exists at $hook_dest."
+        warn "It does not appear to be from this toolkit."
+        backup_file "$hook_dest"
+        printf "  Replace it? [y/N] "
+        read -r answer
+        if [[ "$answer" =~ ^[Yy]$ ]]; then
+          cp "$hook_source" "$hook_dest"
+          chmod +x "$hook_dest"
+          ok "Installed $hook_name hook (replaced existing, backup saved)."
+        else
+          warn "Skipped. Existing hook preserved."
+          echo "  To chain hooks, look into core.hooksPath or a hook manager like husky/lefthook."
+        fi
       fi
     else
       mkdir -p "$git_dir/hooks"
@@ -315,6 +412,38 @@ install_hook \
   "$SCRIPT_DIR/hooks/pre-push" \
   "pre-push" \
   "Warns about uncommitted changes, blocks WIP commits to main/master."
+
+# =============================================================================
+# Default branch check
+# =============================================================================
+section "Default Branch"
+
+DEFAULT_BRANCH=$(detect_default_branch)
+if [ "$DEFAULT_BRANCH" != "main" ]; then
+  warn "This repo's default branch is '${YELLOW}$DEFAULT_BRANCH${RESET}', not 'main'."
+  echo "  All toolkit aliases (grebase-main, gwip, pr-cleanup, etc.) auto-detect"
+  echo "  main vs master. If your default branch uses a different name (e.g."
+  echo "  'develop', 'trunk'), the _git_default_branch helper in aliases.sh"
+  echo "  will fall back to 'main'. You may want to set your remote HEAD:"
+  echo ""
+  echo "    git remote set-head origin $DEFAULT_BRANCH"
+  echo ""
+else
+  ok "Default branch is 'main'. All aliases will work out of the box."
+fi
+
+# =============================================================================
+# core.hooksPath check
+# =============================================================================
+HOOKS_PATH=$(git config --get core.hooksPath 2>/dev/null || true)
+if [ -n "$HOOKS_PATH" ]; then
+  warn "core.hooksPath is set to: ${YELLOW}$HOOKS_PATH${RESET}"
+  echo "  Git will use that directory for hooks, NOT .git/hooks/."
+  echo "  If the hooks we just installed are not firing, either:"
+  echo "    1. Copy them into $HOOKS_PATH"
+  echo "    2. Or unset core.hooksPath: git config --unset core.hooksPath"
+  echo ""
+fi
 
 # =============================================================================
 # Summary

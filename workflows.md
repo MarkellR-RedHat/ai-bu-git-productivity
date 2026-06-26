@@ -173,6 +173,14 @@ git tag -a v1.2.0 -m "Release v1.2.0: description of what shipped"
 git push origin v1.2.0
 ```
 
+After tagging, generate a digest of what shipped for leadership and the team:
+
+```bash
+# If you have ai-bu-shipped-digest installed:
+/shipped              # narrative digest of merged PRs since the last tag
+/shipped-executive    # shorter version for leadership and stakeholders
+```
+
 If you need a release branch for patches:
 
 ```bash
@@ -212,8 +220,83 @@ pr-stack                    # my open PRs and their status
 gdash                       # full repo snapshot
 ```
 
+Need a polished status report instead of raw git output? Pair with other toolkit commands:
+
+```bash
+# If you have ai-bu-status-report installed:
+/status-report              # generates a full weekly status from git + GitHub data
+/status-report-executive    # shorter version for skip-levels and leadership
+```
+
+## My default branch is not called "main"
+
+All aliases auto-detect whether your default branch is `main` or `master`. If your repo uses something else entirely (e.g. `develop`, `trunk`), set the remote HEAD so the detection works:
+
+```bash
+git remote set-head origin develop
+# Now grebase-main, gwip, pr-cleanup, etc. all target "develop"
+```
+
+Verify it took:
+
+```bash
+git symbolic-ref refs/remotes/origin/HEAD
+# Should show: refs/remotes/origin/develop
+```
+
+## I have an existing pre-commit hook and do not want to replace it
+
+The installer detects third-party hooks and will not overwrite them without confirmation. If you want to run both, consider a hook manager:
+
+```bash
+# Option 1: use core.hooksPath with a wrapper script
+mkdir -p ~/.git-hooks
+# Create a wrapper that runs both hooks in sequence
+
+# Option 2: use lefthook or husky
+# lefthook: https://github.com/evilmartians/lefthook
+# husky: https://typicode.github.io/husky/
+```
+
+Or just copy the checks you want from `hooks/pre-commit-check` into your existing hook.
+
+## I accidentally committed a secret
+
+The pre-commit hook blocks most secrets, but if one slips through (via `--no-verify` or a pattern the hook does not cover):
+
+```bash
+# 1. Remove the secret from the file and commit the fix
+gc "fix: remove leaked credential"
+
+# 2. Rotate the credential immediately. This is not optional.
+
+# 3. If you already pushed, the secret is in the remote history.
+#    Rewriting history on a shared branch is disruptive. Evaluate
+#    whether a force-push rewrite is worth the coordination cost,
+#    or whether rotating the credential is sufficient.
+
+# 4. For thorough history scrubbing, use git-filter-repo:
+#    https://github.com/newren/git-filter-repo
+```
+
 ## Rebase vs merge
 
 - Rebase to update your branch FROM main: `grebase-main`
 - Merge to put your branch INTO main (usually via GitHub PR)
 - Never rebase a branch that other people are also pushing to
+
+---
+
+## Pair with other AI BU tools
+
+This toolkit handles the git plumbing. The tools below handle what happens before, during, and after the code work.
+
+| When | Tool | What it does |
+|------|------|-------------|
+| Before a meeting | [ai-bu-meeting-notes](/meeting-notes) | Structured agendas, action tracking, decision logs |
+| After a PR merge | [ai-bu-shipped-digest](/shipped) | Turns merged PRs into a narrative digest for stakeholders |
+| Friday afternoon | [ai-bu-status-report](/status-report) | Weekly status from git history + GitHub data |
+| Writing a commit message | [ai-bu-style-checker](/style-check) | Catches product name typos (OpenShift, not Openshift) |
+| Reviewing a PR | [ai-bu-review-as-persona](/review-as-persona) | Reviews code from specific perspectives (security, perf, API design) |
+
+All of these are Claude Code slash commands. Install them from [ai-bu-hub](https://github.com/redhat-ai-tools/ai-bu-hub).
