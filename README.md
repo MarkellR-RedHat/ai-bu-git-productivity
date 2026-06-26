@@ -1,52 +1,61 @@
-# ai-bu-git-productivity
+# Git Productivity Toolkit
 
-Shell aliases, git config, and hooks that make git actually fast to use. Built for
-engineers who live in the terminal and are tired of typing the same long commands
-over and over.
+You type `git status` 30 times a day. That is 300 keystrokes. `gs` does the same thing in 2.
+
+You type `git add -A && git commit -m "message"` 15 times a day. That is 525 keystrokes. `gc "message"` does it in 14.
+
+You type `git log --oneline --graph --decorate --all` to see the branch graph. That is 42 keystrokes. `glog` does it in 4.
+
+**Estimated keystrokes saved per day: 1,500+**
+
+That is 30 minutes per week you get back just from shorter commands, better output, and fewer mistakes.
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/MarkellR-RedHat/ai-bu-git-productivity.git
 cd ai-bu-git-productivity
-bash install.sh
+bash install.sh            # interactive: picks your shell, backs up configs
+bash install.sh --preview  # see what would be installed without changing anything
 ```
 
-The installer is interactive. It detects your shell (bash/zsh/fish), previews
-each component, lets you pick what you want, and backs up your existing configs
-before changing anything.
+## Top 10 Aliases: Before and After
 
-## The 10 Aliases That Will Change Your Workflow
+### 1. `gs` instead of `git status` (saves 8 keystrokes, 30x/day)
 
-These are the commands people use most. Once you get used to them, going back
-feels painful.
-
-### 1. `gs` instead of `git status`
-
-**Before:**
 ```bash
+# BEFORE:
 git status
-```
 
-**After:**
-```bash
+# AFTER:
 gs
-## main...origin/main [ahead 2]
+main  +2 -0
  M src/auth.py
 ?? notes.txt
 ```
 
-Short output with branch info and ahead/behind count. You will type this 50 times a day.
+Shows your branch name, how far ahead/behind you are, and changed files in a clean format.
 
-### 2. `glog` instead of `git log`
+### 2. `gc "msg"` instead of `git add -A && git commit -m "msg"` (saves 25 keystrokes, 15x/day)
 
-**Before:**
 ```bash
-git log --oneline --graph --decorate --all
+# BEFORE:
+git add -A
+git commit -m "feat: add retry logic"
+
+# AFTER:
+gc "feat: add retry logic"
 ```
 
-**After:**
+Stages everything and commits in one shot.
+
+### 3. `glog` instead of `git log --oneline --graph --decorate --all` (saves 38 keystrokes)
+
 ```bash
+# BEFORE:
+git log --oneline --graph --decorate --all
+
+# AFTER:
 glog
 * a1b2c3d (HEAD -> main) feat: add retry logic  (2 hours ago) <Jane>
 | * d4e5f6a (feature/dashboard) WIP: layout       (5 hours ago) <Bob>
@@ -54,76 +63,57 @@ glog
 * 7g8h9i0 fix: auth timeout                       (yesterday) <Jane>
 ```
 
-Color-coded graph with relative dates and author names. No more guessing
-what the `--format` flags are.
+Color-coded graph with relative dates and author names.
 
-### 3. `gwip` / `gunwip` for work-in-progress
+### 4. `gpush` instead of the first-push dance (saves 30+ keystrokes)
 
-**Before:**
 ```bash
-git add -A
-git commit -m "WIP"
-# later...
-git reset --soft HEAD~1
-```
-
-**After:**
-```bash
-gwip                   # stages everything, commits as WIP [skip ci]
-gunwip                 # undoes the WIP commit, leaves changes staged
-```
-
-Save your work before switching branches. Pick up exactly where you left off.
-
-### 4. `gpush` instead of the first-push dance
-
-**Before:**
-```bash
+# BEFORE:
 git push
 # fatal: The current branch feature/foo has no upstream branch.
 git push --set-upstream origin feature/foo
+
+# AFTER:
+gpush
 ```
 
-**After:**
+Pushes and sets upstream automatically. No more copying the suggested command.
+
+### 5. `gwip` / `gunwip` for saving work fast
+
 ```bash
-gpush                  # pushes and sets upstream automatically
+gwip                   # stages everything, commits as WIP [skip ci]
+# switch branches, do other work, come back
+gunwip                 # undoes the WIP commit, leaves changes staged
 ```
 
-No more copying the suggested command from the error message.
+Warns you if you try to WIP on main. Pairs with `gunwip` to pick up where you left off.
 
-### 5. `grebase-main` to stay current
+### 6. `grebase-main` instead of the fetch-and-rebase dance
 
-**Before:**
 ```bash
-git fetch origin main
+# BEFORE:
+git fetch origin main   # or was it master? let me check...
 git rebase origin/main
-# or was it master? Let me check...
-```
 
-**After:**
-```bash
+# AFTER:
 grebase-main           # auto-detects main vs master, fetches, rebases
 ```
 
-Works on repos that use `main` and repos that use `master`. No thinking required.
+### 7. `pr-create` for pull requests
 
-### 6. `pr-create` for pull requests
-
-**Before:**
 ```bash
+# BEFORE:
 git push -u origin feature/add-auth-retry
 gh pr create --title "Add auth retry" --fill
-```
 
-**After:**
-```bash
+# AFTER:
 pr-create              # auto-pushes, generates title from branch name
 ```
 
-Your branch name `feature/add-auth-retry` becomes PR title "Add auth retry"
-automatically. Override it if you want, or just press Enter.
+Branch name `feature/add-auth-retry` becomes PR title "Add auth retry" automatically.
 
-### 7. `gdash` for the full picture
+### 8. `gdash` for a full repo snapshot
 
 ```bash
 gdash
@@ -137,99 +127,76 @@ Remote:  origin/feature/auth-retry (ahead 2 / behind 0)
 --- Uncommitted Changes ---
   M src/client.py
 
---- Stashes: 1 ---
-  stash@{0}: On main: quick experiment
-
 --- Recent Commits (last 5) ---
   a1b2c3d feat: add retry logic        (2 hours ago)
   d4e5f6a refactor: extract auth module (yesterday)
 
 --- Open PRs (this repo) ---
   #12  Add retry logic  feature/auth-retry  OPEN
-
 ========================================
 ```
 
-Everything you need to know about your repo in one command.
+### 9. `gundo` to safely undo a commit
 
-### 8. `gwho` to investigate ownership
-
-**Before:**
 ```bash
-git log --format='%aN' -- src/auth.py | sort | uniq -c | sort -rn | head -10
+gundo
+Undoing commit: feat: add retry logic
+Changes are back in staging. Nothing was lost.
 ```
 
-**After:**
+Soft-resets the last commit. All your changes stay staged.
+
+### 10. `gfind` / `gwho` to investigate history
+
 ```bash
-gwho src/auth.py
-Top contributors to src/auth.py:
-
-  15 Jane Engineer
-   8 Bob Developer
-   3 Alice Reviewer
+gfind "retry"          # search commit messages across all branches
+gwho src/auth.py       # who changed this file the most?
+gwhen src/auth.py 42   # who last touched line 42?
 ```
-
-Know who to ask about a file before you start changing it.
-
-### 9. `pr-cleanup` to stay tidy
-
-**Before:**
-```bash
-git checkout main
-git pull
-git branch --merged | grep -v main | xargs git branch -d
-# then manually delete each one from the remote too
-```
-
-**After:**
-```bash
-pr-cleanup             # switches to main, deletes merged branches, offers to clean remote too
-```
-
-Run this at the end of every sprint. Takes 5 seconds.
-
-### 10. `gfind` to search history
-
-**Before:**
-```bash
-git log --all --oneline --grep="retry"
-```
-
-**After:**
-```bash
-gfind "retry"
-Commits matching "retry":
-
-a1b2c3d feat: add retry logic to API client  (2 hours ago) <Jane>
-f4e5d6c fix: remove old retry workaround      (3 weeks ago) <Bob>
-```
-
-Search commit messages across all branches with color-coded output.
 
 ## Full Command Reference
 
-### Daily Workflow
+### Every 5 Minutes
+
+| Command | What it does | Keystrokes saved |
+|---------|-------------|-----------------|
+| `gs` | Status with branch info and ahead/behind | 8 per use |
+| `ga` / `gaa` | `git add` / `git add -A` | 5-8 per use |
+| `gd` / `gds` | `git diff` / `git diff --staged` | 6-12 per use |
+| `gc "msg"` | Stage all + commit in one shot | 25 per use |
+| `gpush` | Push + set upstream automatically | 30+ per use |
+| `gpull` | Pull with rebase | 12 per use |
+| `gco [branch]` | Checkout (fzf picker if no arg given) | 8 per use |
+| `gcb <name>` | Create and switch to new branch | 10 per use |
+
+### Every Hour
 
 | Command | What it does |
 |---------|-------------|
-| `gs` | Git status with branch info and ahead/behind count |
-| `glog` | One-line log with colors, graph, and relative dates |
+| `glog` | One-line log with graph, colors, relative dates |
 | `glog1` | Condensed log, last 20 commits, no graph |
-| `gtoday` | Your commits from today (great for standups) |
-| `gweek` | Your commits from the past week |
-| `gc "msg"` | Stage all + commit in one shot |
-| `gwip` | Quick WIP commit that skips CI |
-| `gunwip` | Undo the last WIP commit |
-| `gundo` | Safely undo the last commit (keeps changes staged) |
-| `gpush` | Push and set upstream in one command |
-| `gpull` | Pull with rebase |
-| `gfetch` | Fetch all remotes and prune stale branches |
-| `grebase-main` | Fetch + rebase onto main/master (auto-detects) |
-| `gco` | Checkout branch (uses fzf for interactive selection if available) |
-| `gcb <name>` | Create and switch to a new branch |
+| `gamend` | Amend last commit, keep message |
+| `gamend-msg` | Amend last commit, edit message |
+| `gap` | Stage hunks interactively (patch mode) |
 | `gstash [msg]` | Stash everything including untracked files |
 | `gstash-pop` | Pop the most recent stash |
-| `gopen` | Open the repo in your browser |
+| `gstash-ls` | List stashes with clean formatting |
+| `grebase-main` | Fetch + rebase onto main/master (auto-detects) |
+| `gfetch` | Fetch all remotes, prune stale branches |
+
+### Several Times a Day
+
+| Command | What it does |
+|---------|-------------|
+| `gwip` | Quick WIP commit (warns on main, skips CI) |
+| `gunwip` | Undo the last WIP commit |
+| `gundo` | Undo last commit, keep changes staged |
+| `gtoday` | Your commits from today (great for standups) |
+| `gweek` | Your commits from the past week |
+| `gdiff-words` | Word-level diff (great for prose and config) |
+| `gdiff-staged` | Show staged changes |
+| `gdiff-last` | Diff of the last commit |
+| `gchanged [N]` | Files changed in the last N commits |
 
 ### PR Workflow
 
@@ -237,9 +204,9 @@ Search commit messages across all branches with color-coded output.
 |---------|-------------|
 | `pr-create` | Create PR, auto-fill title from branch name |
 | `pr-draft` | Create a draft PR |
-| `pr-ready [reviewers]` | Mark draft as ready, optionally request reviewers |
+| `pr-ready [reviewers]` | Mark draft as ready, request reviewers |
 | `pr-cleanup` | Delete merged branches locally and remotely |
-| `pr-stack` | Show your open PRs with review status |
+| `pr-stack` | Your open PRs with review status |
 | `pr-checkout <num>` | Check out a PR branch by number |
 | `pr-diff [num]` | View PR diff in terminal |
 | `greview` | PRs waiting for your review |
@@ -249,13 +216,11 @@ Search commit messages across all branches with color-coded output.
 | Command | What it does |
 |---------|-------------|
 | `gwho <file>` | Who changed this file most (by commit count) |
-| `gwhen <file> [line]` | When was this file/line last changed (formatted blame) |
-| `gfind <string>` | Search commit messages for a string |
-| `gfind-code <string>` | Search code diffs for when a string was added/removed |
-| `gdiff-words` | Word-level diff (great for prose and config) |
+| `gwhen <file> [line]` | When was this file/line last changed |
+| `gfind <string>` | Search commit messages across all branches |
+| `gfind-code <string>` | Search diffs for when code was added/removed |
 | `gdiff-stat [branch]` | File-level diff stats vs default branch |
-| `gcontrib` | Your contribution stats (commits, lines, files) |
-| `gchanged [N]` | Files changed in the last N commits |
+| `gcontrib` | Your stats: commits, lines added/removed, files |
 
 ### Team
 
@@ -264,6 +229,7 @@ Search commit messages across all branches with color-coded output.
 | `gteam` | Active branches with last commit and author |
 | `gstale [days]` | Branches with no commits in N+ days (default 14) |
 | `gleaderboard [days]` | Commit leaderboard for the last N days |
+| `gdash` | Full repo dashboard in one command |
 
 ### Cleanup
 
@@ -273,7 +239,7 @@ Search commit messages across all branches with color-coded output.
 | `gclean-files` | Remove untracked files (with confirmation) |
 | `greset-hard` | Reset branch to match remote (with confirmation) |
 
-### Quick Shortcuts
+### Single-Letter Shortcuts
 
 | Shortcut | Expands to |
 |----------|-----------|
@@ -284,101 +250,64 @@ Search commit messages across all branches with color-coded output.
 | `gb` | `git branch` |
 | `gba` | `git branch -a` |
 | `gm` | `git merge` |
-| `gap` | `git add -p` (interactive patch mode) |
-| `gamend` | Amend last commit, keep message |
-| `gamend-msg` | Amend last commit, edit message |
+| `grb` | `git rebase` |
+| `grs` | `git restore` |
 
 ## Git Config Extras
 
-The `gitconfig-extras` file includes settings that most engineers should have
-but few know about. Include it globally:
+The `gitconfig-extras` file includes settings most engineers should have but few
+know about. The installer adds it to your global config, or you can do it manually:
 
 ```bash
 git config --global include.path /path/to/ai-bu-git-productivity/gitconfig-extras
 ```
 
-**Performance:**
-- `core.fsmonitor = true` - filesystem event monitor for faster `git status`
-- `core.untrackedCache = true` - cached untracked file list
-- `fetch.writeCommitGraph = true` - faster log traversal after fetch
-- `feature.manyFiles = true` - optimizations for repos with lots of files
-
-**Better defaults:**
-- `diff.algorithm = histogram` - cleaner diffs
-- `merge.conflictstyle = zdiff3` - easier conflict resolution
-- `rebase.autoStash = true` - auto-stash during rebase
-- `push.autoSetupRemote = true` - no more `--set-upstream`
-- `rerere.enabled = true` - remembers conflict resolutions
-- `pull.rebase = true` - rebase on pull instead of merge
-
-**Git aliases** (these work as `git <alias>`):
-- `git st` - short status
-- `git amend` - amend without editing message
-- `git recent` - branches by last commit date
-- `git rb 5` - interactive rebase on last 5 commits
-- `git who <file>` - who contributed most to a file
-- `git backup` - create a backup tag before risky operations
-- `git root` - show repo root directory
+Highlights:
+- `diff.algorithm = histogram` for cleaner diffs
+- `merge.conflictstyle = zdiff3` for easier conflict resolution
+- `rebase.autoStash = true` so you never have to stash before rebasing
+- `push.autoSetupRemote = true` so you never see the "no upstream" error
+- `rerere.enabled = true` so git remembers how you resolved conflicts
+- `core.fsmonitor = true` for faster `git status` on large repos
 
 ## Hooks
 
-All hooks are optional and installed per-repo. Each one can be skipped with
+All hooks are optional and installed per-repo. Each one can be bypassed with
 `--no-verify` when you have a legitimate reason.
 
-### Pre-commit Hook
+### Pre-commit
 
-Catches common mistakes before they land in history.
+Catches real mistakes before they land in history: `.env` files, files over 5MB,
+merge conflict markers, AWS keys, API tokens, private keys, and debug statements
+like `console.log` and `debugger`. Warns (but does not block) on TODO markers
+and trailing whitespace.
 
-| Check | Behavior |
-|-------|----------|
-| `.env` files | Blocks commit |
-| Files over 5 MB | Blocks commit |
-| Merge conflict markers | Blocks commit |
-| AWS keys, API tokens, private keys | Blocks commit |
-| `console.log`, `debugger`, `binding.pry` | Blocks commit |
-| Credential-like files (.pem, .p12) | Warns |
-| TODO/FIXME/HACK in new code | Warns |
-| Trailing whitespace | Warns |
+### Commit-msg
 
-### Commit-msg Hook
+Checks for conventional commit format (`type: description`). If your message is
+not in the right format, it **suggests a prefix** based on the files you changed
+and lets the commit proceed. It does not reject your commit.
 
-Enforces conventional commit format for consistent, parseable history.
+### Pre-push
 
-| Check | Behavior |
-|-------|----------|
-| Not conventional format (`type: description`) | Blocks commit |
-| Subject line over 72 characters | Warns |
-| Description under 10 characters | Warns |
-| Trailing period on subject | Warns |
+Warns about uncommitted changes that will not be included in the push. Blocks
+WIP commits from being pushed to main/master.
 
-Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+## Workflows
 
-### Pre-push Hook
-
-Last line of defense before code goes to the remote.
-
-| Check | Behavior |
-|-------|----------|
-| WIP commits being pushed to main/master | Blocks push |
-| Uncommitted local changes | Warns |
-| Untracked files | Notes |
-
-## Workflows Reference
-
-See [workflows.md](workflows.md) for complete step-by-step guides:
-- Feature branch workflow
-- Hotfix workflow
-- Release workflow
-- "I pushed to main by accident" recovery
-- "I force-pushed and lost commits" recovery
-- Rebase vs merge: when to use which
+See [workflows.md](workflows.md) for copy-paste commands organized by scenario:
+- "I need to fix a bug in production"
+- "I pushed to main by accident"
+- "My rebase has conflicts"
+- "I need to find who changed this file"
+- "I need to prepare for standup"
 
 ## Requirements
 
 - Git 2.x or later
 - Bash or Zsh (fish works with the [bass](https://github.com/edc/bass) plugin)
-- [gh CLI](https://cli.github.com) (optional, needed for PR commands and dashboard PR section)
-- [fzf](https://github.com/junegunn/fzf) (optional, enables interactive branch selection with `gco`)
+- [gh CLI](https://cli.github.com) (optional, for PR commands and dashboard)
+- [fzf](https://github.com/junegunn/fzf) (optional, for interactive branch picking with `gco`)
 
 ## License
 

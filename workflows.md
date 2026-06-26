@@ -1,223 +1,231 @@
-# Git Workflows Reference
+# Git Workflows: Copy-Paste Commands for Every Scenario
 
-A practical guide to common git workflows. Each section includes the exact commands
-to run, using aliases from this toolkit where they save time.
+Jump to the scenario you need. Each section gives you the exact commands to run.
+All aliases reference this toolkit. Install it first or swap in the full git commands.
 
-## Feature Branch Workflow
+---
 
-The standard flow for shipping a new feature from start to finish.
-
-```bash
-# 1. Start from a fresh default branch
-git checkout main
-gpull                           # pull with rebase
-
-# 2. Create your feature branch
-gcb feature/add-retry-logic     # shortcut for git checkout -b
-
-# 3. Do your work, committing as you go
-ga src/retry.py                 # stage specific files
-gc "feat: add retry logic to API client"
-
-# 4. Keep your branch up to date with main
-grebase-main                    # fetch + rebase onto main automatically
-
-# 5. Push and create a PR
-gpush                           # push + set upstream in one shot
-pr-create                       # auto-fills title from branch name
-
-# 6. After review, merge via GitHub UI or:
-gh pr merge --squash
-
-# 7. Clean up
-pr-cleanup                      # delete merged local + remote branches
-```
-
-## Hotfix Workflow
-
-When production is broken and you need a fix shipped fast.
+## I need to start a new feature
 
 ```bash
-# 1. Start from main, make sure it is current
 git checkout main
 gpull
-
-# 2. Create a hotfix branch
-gcb hotfix/fix-auth-timeout
-
-# 3. Make the minimal fix
-ga src/auth.py
-gc "fix: increase auth timeout to prevent 502s"
-
-# 4. Push and create a PR with urgency
+gcb feature/my-feature-name
+# ... do your work ...
+ga src/my-file.py
+gc "feat: add the thing"
 gpush
-pr-create "fix: increase auth timeout to prevent 502s"
-
-# 5. Get a quick review, then merge
-gh pr merge --squash
-
-# 6. If you need to deploy from the branch before merging:
-# (depends on your CI/CD setup)
-git push origin hotfix/fix-auth-timeout:deploy/hotfix-auth
+pr-create
 ```
 
-## Release Workflow
-
-When you cut a release from main.
+## I need to fix a bug in production
 
 ```bash
-# 1. Make sure main is current
 git checkout main
 gpull
+gcb hotfix/describe-the-fix
+# ... make the minimal fix ...
+ga src/broken-thing.py
+gc "fix: describe what you fixed"
+gpush
+pr-create "fix: describe what you fixed"
+# Get a fast review, then merge via GitHub UI or:
+gh pr merge --squash
+```
 
-# 2. Tag the release
-git tag -a v1.2.0 -m "Release v1.2.0: retry logic and auth fixes"
+## I need to save my work and switch branches
+
+```bash
+gwip                    # stages everything, commits as WIP [skip ci]
+gco other-branch        # switch to the other branch
+# ... do your work on the other branch ...
+gco -                   # switch back (dash means "previous branch")
+gunwip                  # undo the WIP commit, changes are staged and ready
+```
+
+Alternative using stash:
+
+```bash
+gstash "half-done auth work"
+gco other-branch
+# ... do your work ...
+gco -
+gstash-pop
+```
+
+## I need to update my branch with the latest from main
+
+```bash
+grebase-main            # fetches origin, rebases onto main/master automatically
+```
+
+If there are conflicts:
+
+```bash
+# Fix the conflicting files, then:
+git add <fixed-file>
+git rebase --continue
+# Or abort and go back to where you were:
+git rebase --abort
+```
+
+## I need to undo my last commit (keep changes)
+
+```bash
+gundo                   # resets the commit, changes stay staged
+```
+
+## I need to change my last commit message
+
+```bash
+gamend-msg              # opens your editor to rewrite the message
+```
+
+## I need to add more changes to my last commit
+
+```bash
+ga src/forgot-this.py
+gamend                  # adds staged changes to the last commit, same message
+```
+
+## I pushed to main by accident
+
+**If nobody has pulled yet:**
+
+```bash
+gcb fix/move-off-main       # save your work on a new branch
+git checkout main
+git fetch origin
+git reset --hard origin/main
+git checkout fix/move-off-main
+pr-create                   # create a PR from the branch instead
+```
+
+**If other people already pulled:**
+
+Do NOT force-push main. Revert your commits instead:
+
+```bash
+glog1                       # find the commit hashes you pushed
+git revert abc1234           # creates a new commit that undoes the change
+git push origin main
+# Now put your work on a proper branch:
+gcb feature/my-actual-work
+git revert HEAD             # revert the revert to get your changes back
+pr-create
+```
+
+## My rebase has conflicts
+
+```bash
+# Git will pause and tell you which files have conflicts.
+# Open each conflicting file, look for the markers:
+#   <<<<<<< HEAD
+#   (your changes)
+#   =======
+#   (incoming changes)
+#   >>>>>>> commit-hash
+
+# Fix the file, then:
+git add <fixed-file>
+grb-continue                # git rebase --continue
+
+# If you want to skip this one commit:
+git rebase --skip
+
+# If you want to give up and go back to where you started:
+grb-abort                   # git rebase --abort
+```
+
+## I need to cherry-pick a commit from another branch
+
+```bash
+glog                        # find the commit hash on the other branch
+gcp abc1234                 # cherry-pick with conflict hints if needed
+```
+
+For multiple commits:
+
+```bash
+gcp abc1234 def5678 ghi9012
+```
+
+## I need to find who last changed a file
+
+```bash
+gwho src/auth.py            # top contributors by commit count
+gwhen src/auth.py           # full blame with relative dates
+gwhen src/auth.py 42        # blame just line 42
+```
+
+## I need to find when a piece of code was added or removed
+
+```bash
+gfind-code "some_function"  # shows commits where that string was added/removed
+gfind "retry"               # search commit messages instead
+```
+
+## I need to cut a release
+
+```bash
+git checkout main
+gpull
+git tag -a v1.2.0 -m "Release v1.2.0: description of what shipped"
 git push origin v1.2.0
+```
 
-# 3. If you need a release branch for patch releases:
+If you need a release branch for patches:
+
+```bash
 gcb release/v1.2
 gpush
-
-# 4. Cherry-pick a fix into the release branch later:
+# Later, cherry-pick fixes into it:
 git checkout release/v1.2
-gcp abc1234                     # cherry-pick with conflict hints
-
-# 5. Tag the patch release
-git tag -a v1.2.1 -m "Release v1.2.1: hotfix for auth timeout"
+gcp abc1234
+git tag -a v1.2.1 -m "Release v1.2.1: describe the patch"
 git push origin v1.2.1
 ```
 
-## Recovery: "I Pushed to Main by Accident"
+## I force-pushed and lost commits
 
-You committed directly to main and pushed. Here is how to fix it without causing
-problems for the rest of the team.
-
-**If you just pushed and nobody has pulled yet:**
+Git keeps everything for at least 30 days in the reflog.
 
 ```bash
-# 1. Create a branch from your current position (saves your work)
-gcb fix/move-off-main
-
-# 2. Switch back to main
-git checkout main
-
-# 3. Reset main to match the remote
-git fetch origin
-git reset --hard origin/main
-
-# 4. Your work is safe on the fix/move-off-main branch
-# Create a PR from there instead
-git checkout fix/move-off-main
-pr-create
-```
-
-**If other people have already pulled:**
-
-Do NOT force-push main. Instead, revert your commits:
-
-```bash
-# 1. Find the commits you accidentally pushed
-glog1                           # see recent commits
-
-# 2. Revert them (creates new commits that undo the changes)
-git revert abc1234              # revert a single commit
-# or for multiple commits:
-git revert abc1234..def5678
-
-# 3. Push the revert
-git push origin main
-
-# 4. Now create a proper branch with your changes
-gcb feature/my-actual-work
-git revert HEAD                 # revert the revert to get your changes back
-pr-create
-```
-
-## Recovery: "I Force-Pushed and Lost Commits"
-
-Someone (maybe you) force-pushed and now commits are gone. Git keeps everything
-for at least 30 days in the reflog.
-
-```bash
-# 1. Check the reflog to find the lost commits
 git reflog
-
-# The output looks like:
-#   abc1234 HEAD@{0}: reset: moving to origin/main
-#   def5678 HEAD@{1}: commit: feat: the commit you lost
-#   ghi9012 HEAD@{2}: commit: fix: another lost commit
-
-# 2. Find the commit hash from BEFORE the force-push
-
-# 3. Create a recovery branch from that point
-git checkout -b recovery/lost-work def5678
-
-# 4. Verify everything is there
-glog1
-git diff main
-
-# 5. If you need to restore a branch to where it was:
-git branch -f feature/my-branch def5678
+# Find the commit hash from BEFORE the force-push, then:
+git checkout -b recovery/lost-work <hash-from-reflog>
+glog1                       # verify everything is there
 ```
 
-## Rebase vs Merge: When to Use Which
-
-**Use rebase when:**
-- Updating your feature branch with the latest from main
-- You want a clean, linear commit history
-- Working on a branch that only you are using
-- Cleaning up commits before a PR review
+## I need to clean up old branches
 
 ```bash
-# Rebase your branch onto the latest main
+pr-cleanup                  # deletes merged branches locally and on the remote
+gstale                      # shows branches with no commits in 14+ days
+gclean                      # deletes merged local branches (with confirmation)
+```
+
+## I need to prepare for standup
+
+```bash
+gtoday                      # what did I commit today?
+gweek                       # what did I commit this week?
+greview                     # PRs waiting for my review
+pr-stack                    # my open PRs and their status
+gdash                       # full repo snapshot
+```
+
+## Rebase vs merge: when to use which
+
+**Rebase** when updating your feature branch from main:
+
+```bash
 grebase-main
-
-# Interactive rebase to clean up your last 5 commits
-git rb 5                        # uses the git alias from gitconfig-extras
 ```
 
-**Use merge when:**
-- Merging a finished PR into main (usually done via GitHub)
-- Combining two branches where you want to preserve the branch history
-- Working on a shared branch where others are also pushing commits
-- You want a merge commit as a clear record that a feature landed
+**Merge** when landing a finished feature into main (usually done via GitHub PR).
 
-```bash
-# Merge a branch into main (creates a merge commit)
-git checkout main
-git merge --no-ff feature/dashboard
-```
-
-**The short version:**
+The short version:
 - Rebase to update your branch FROM main
-- Merge to land your branch INTO main
-- Never rebase a branch that other people are also working on
-
-## Daily Standup Prep
-
-Run these commands in the morning to prepare for standup:
-
-```bash
-# What did I do yesterday?
-gweek                           # shows your commits from the past week
-
-# What is on my plate today?
-greview                         # PRs waiting for my review
-pr-stack                        # my open PRs and their status
-
-# Quick snapshot of repo state
-gdash                           # full dashboard
-```
-
-## End of Sprint Cleanup
-
-```bash
-# Clean up merged branches
-pr-cleanup                      # delete merged branches local + remote
-
-# Find stale branches
-gstale                          # branches with no commits in 2+ weeks
-
-# Check your contribution stats
-gcontrib                        # commits, lines added/removed, files touched
-```
+- Merge to put your branch INTO main
+- Never rebase a branch that other people are also pushing to

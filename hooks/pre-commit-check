@@ -1,26 +1,25 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/hooks/pre-commit-check
-# A pre-commit hook that catches common mistakes before they land in history.
+# Catches real mistakes before they land in your git history.
 #
-# What it checks:
-#   BLOCKS (prevents commit):
-#     - .env files and other secret files
-#     - Files over 5 MB (use Git LFS instead)
-#     - Merge conflict markers
-#     - AWS keys, API tokens, and hardcoded credentials
-#     - console.log / debugger / binding.pry statements
+# BLOCKS (prevents commit):
+#   - .env files and other secret files
+#   - Files over 5 MB (use Git LFS instead)
+#   - Merge conflict markers (<<<<<<, >>>>>>, ======)
+#   - AWS keys, API tokens, private keys
+#   - Debug statements: console.log, debugger, binding.pry, breakpoint()
 #
-#   WARNS (commit proceeds, but you should know):
-#     - Credential-like file patterns (.pem, .p12, private keys)
-#     - TODO/FIXME/HACK markers in new code
-#     - Trailing whitespace
+# WARNS (commit proceeds, but you should know):
+#   - Credential-like file patterns (.pem, .p12, private keys)
+#   - TODO/FIXME/HACK in new code (just a heads-up)
+#   - Trailing whitespace
 #
 # Install:
 #   cp hooks/pre-commit-check .git/hooks/pre-commit
 #   chmod +x .git/hooks/pre-commit
 #
-# To skip this hook for a single commit (use sparingly):
-#   git commit --no-verify
+# Skip for a single commit: git commit --no-verify
+# Disable for a repo: rm .git/hooks/pre-commit
 
 set -euo pipefail
 
@@ -36,17 +35,17 @@ fi
 
 # ---- BLOCKERS ---------------------------------------------------------------
 
-# Check for .env files
+# .env files
 env_files=$(echo "$STAGED_FILES" | grep -E '\.env($|\.)' || true)
 if [ -n "$env_files" ]; then
-  echo "BLOCKED: Attempting to commit .env file(s):"
+  echo "BLOCKED: .env file(s) staged for commit:"
   echo "$env_files"
   echo "These files often contain secrets. Add them to .gitignore instead."
   echo ""
   errors=$((errors + 1))
 fi
 
-# Check for large files (over 5 MB)
+# Files over 5 MB
 large_file_limit=5242880
 while IFS= read -r file; do
   [ -z "$file" ] && continue
@@ -54,14 +53,14 @@ while IFS= read -r file; do
   file_size=$(wc -c < "$file" | tr -d ' ')
   if [ "$file_size" -gt "$large_file_limit" ]; then
     size_mb=$(echo "scale=1; $file_size / 1048576" | bc 2>/dev/null || echo "?")
-    echo "BLOCKED: File '$file' is ${size_mb}MB (limit is 5MB)."
-    echo "Consider using Git LFS: git lfs track '$file'"
+    echo "BLOCKED: '$file' is ${size_mb}MB (limit is 5MB)."
+    echo "Use Git LFS: git lfs track '$file'"
     echo ""
     errors=$((errors + 1))
   fi
 done <<< "$STAGED_FILES"
 
-# Check for merge conflict markers
+# Merge conflict markers
 conflict_files=""
 while IFS= read -r file; do
   [ -z "$file" ] && continue
@@ -81,7 +80,7 @@ if [ -n "$conflict_files" ]; then
   errors=$((errors + 1))
 fi
 
-# Check for AWS keys, API tokens, and hardcoded secrets
+# Secrets and credentials
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   [ ! -f "$file" ] && continue
@@ -91,14 +90,14 @@ while IFS= read -r file; do
   fi
   # AWS access key IDs and secret keys
   if grep -nE '(AKIA[0-9A-Z]{16}|aws_secret_access_key|aws_access_key_id)\s*[=:]' "$file" 2>/dev/null; then
-    echo "BLOCKED: Possible AWS credentials found in '$file'."
+    echo "BLOCKED: Possible AWS credentials in '$file'."
     echo "Use environment variables or a secrets manager instead."
     echo ""
     errors=$((errors + 1))
   fi
-  # Generic API keys and tokens (common patterns)
+  # Generic API keys and tokens
   if grep -nE '(api[_-]?key|api[_-]?secret|auth[_-]?token|access[_-]?token)\s*[=:]\s*["\x27][A-Za-z0-9+/]{20,}' "$file" 2>/dev/null; then
-    echo "BLOCKED: Possible hardcoded API key or token found in '$file'."
+    echo "BLOCKED: Possible hardcoded API key or token in '$file'."
     echo "Use environment variables or a secrets manager instead."
     echo ""
     errors=$((errors + 1))
@@ -112,12 +111,11 @@ while IFS= read -r file; do
   fi
 done <<< "$STAGED_FILES"
 
-# Check for debug statements (console.log, debugger, binding.pry, etc.)
+# Debug statements (only in source files, only in newly added lines)
 debug_found=0
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   [ ! -f "$file" ] && continue
-  # Only check source files, not configs or docs
   case "$file" in
     *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs)
       matches=$(git diff --cached -U0 "$file" 2>/dev/null | grep -n '^\+.*\(console\.log\|console\.debug\|debugger\b\)' || true)
@@ -137,7 +135,7 @@ while IFS= read -r file; do
   esac
   if [ -n "${matches:-}" ]; then
     if [ "$debug_found" -eq 0 ]; then
-      echo "BLOCKED: Debug/log statements found in staged changes:"
+      echo "BLOCKED: Debug/log statements in staged changes:"
       debug_found=1
     fi
     echo "  $file"
@@ -150,9 +148,9 @@ if [ "$debug_found" -eq 1 ]; then
   echo ""
 fi
 
-# ---- WARNINGS ---------------------------------------------------------------
+# ---- WARNINGS (commit still proceeds) ---------------------------------------
 
-# Check for credential-like file patterns
+# Credential-like file patterns
 cred_files=$(echo "$STAGED_FILES" | grep -iE '(credentials|secret|private.key|\.pem$|\.p12$|\.pfx$|id_rsa|id_ed25519|\.key$)' || true)
 if [ -n "$cred_files" ]; then
   echo "WARNING: Potentially sensitive file(s) staged:"
@@ -162,16 +160,15 @@ if [ -n "$cred_files" ]; then
   warnings=$((warnings + 1))
 fi
 
-# Check for TODO/FIXME/HACK in newly added lines only
+# TODO/FIXME/HACK in newly added lines
 marker_found=0
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   [ ! -f "$file" ] && continue
-  # Only flag markers in NEW lines (lines starting with +)
   matches=$(git diff --cached -U0 "$file" 2>/dev/null | grep -E '^\+.*\b(TODO|FIXME|HACK|XXX)\b' || true)
   if [ -n "$matches" ]; then
     if [ "$marker_found" -eq 0 ]; then
-      echo "WARNING: TODO/FIXME/HACK markers in new code:"
+      echo "NOTE: TODO/FIXME/HACK markers in new code:"
       marker_found=1
     fi
     echo "  $file"
@@ -179,12 +176,12 @@ while IFS= read -r file; do
 done <<< "$STAGED_FILES"
 
 if [ "$marker_found" -eq 1 ]; then
-  echo "  These are fine if intentional. Just making sure you know they are there."
+  echo "  Fine if intentional. Just making sure you know."
   echo ""
   warnings=$((warnings + 1))
 fi
 
-# Check for trailing whitespace in new lines
+# Trailing whitespace
 trailing_ws=0
 while IFS= read -r file; do
   [ -z "$file" ] && continue
@@ -194,7 +191,7 @@ while IFS= read -r file; do
   fi
   if git diff --cached --check "$file" 2>/dev/null | grep -q "trailing whitespace"; then
     if [ "$trailing_ws" -eq 0 ]; then
-      echo "WARNING: Trailing whitespace found in:"
+      echo "NOTE: Trailing whitespace in:"
       trailing_ws=1
     fi
     echo "  $file"
@@ -210,12 +207,12 @@ fi
 # ---- SUMMARY ----------------------------------------------------------------
 
 if [ "$warnings" -gt 0 ]; then
-  echo "Pre-commit: $warnings warning(s). Review the messages above."
+  echo "Pre-commit: $warnings note(s). Review the messages above."
 fi
 
 if [ "$errors" -gt 0 ]; then
   echo "Pre-commit: FAILED with $errors error(s). Fix the issues above and try again."
-  echo "To skip this check (not recommended): git commit --no-verify"
+  echo "To skip this check (use sparingly): git commit --no-verify"
   exit 1
 fi
 

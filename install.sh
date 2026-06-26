@@ -1,17 +1,26 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/install.sh
 # Interactive installer for the git productivity toolkit.
-# Detects your shell, previews what will be installed, lets you pick components,
-# and backs up existing configs before making any changes.
+# Detects your shell, previews what will be installed, backs up existing
+# configs, and lets you pick components.
+#
+# Usage:
+#   bash install.sh           # interactive install
+#   bash install.sh --preview # show what would be installed without changing anything
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_LINE="source \"$SCRIPT_DIR/aliases.sh\""
 BACKUP_DIR="$HOME/.git-productivity-backups/$(date +%Y%m%d-%H%M%S)"
+PREVIEW_ONLY=false
+
+if [[ "${1:-}" == "--preview" ]]; then
+  PREVIEW_ONLY=true
+fi
 
 # =============================================================================
-# Color helpers (graceful fallback for non-color terminals)
+# Color helpers
 # =============================================================================
 if [ -t 1 ] && command -v tput &>/dev/null && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
   GREEN=$(tput setaf 2)
@@ -51,7 +60,6 @@ detect_shell_config() {
       echo "$HOME/.config/fish/config.fish"
       ;;
     *)
-      # bash and everything else
       if [ -f "$HOME/.bashrc" ]; then
         echo "$HOME/.bashrc"
       elif [ -f "$HOME/.bash_profile" ]; then
@@ -83,38 +91,78 @@ backup_file() {
 # =============================================================================
 echo ""
 echo "${BOLD}============================================${RESET}"
-echo "${BOLD}  ai-bu-git-productivity installer${RESET}"
+echo "${BOLD}  Git Productivity Toolkit${RESET}"
 echo "${BOLD}============================================${RESET}"
+echo ""
+echo "  You type 'git status' ~30 times a day."
+echo "  That is 300 keystrokes. ${CYAN}gs${RESET} does the same in 2."
 echo ""
 echo "  Detected shell:  ${CYAN}$DETECTED_SHELL${RESET}"
 echo "  Shell config:    ${CYAN}$SHELL_CONFIG${RESET}"
 echo ""
 
 if [ "$DETECTED_SHELL" = "fish" ]; then
-  echo "${YELLOW}NOTE: Fish shell detected. The aliases in this toolkit use bash/zsh"
-  echo "syntax. They will be sourced via a bash compatibility layer, but some"
-  echo "features may not work perfectly. Consider using bash or zsh for best results.${RESET}"
+  echo "${YELLOW}NOTE: Fish shell detected. The aliases use bash/zsh syntax."
+  echo "They will be sourced via a bash compatibility layer (bass plugin)."
+  echo "Some features may not work perfectly. Bash or zsh is recommended.${RESET}"
   echo ""
 fi
 
-echo "${BOLD}This toolkit includes:${RESET}"
-echo ""
-echo "  ${GREEN}1.${RESET} Shell aliases and functions"
-echo "     ${DIM}40+ shortcuts for daily git work, PR workflow, investigation, cleanup${RESET}"
-echo ""
-echo "  ${GREEN}2.${RESET} Git config extras"
-echo "     ${DIM}Performance tuning, better diffs, auto-stash, rerere, color scheme${RESET}"
-echo ""
-echo "  ${GREEN}3.${RESET} Pre-commit hook"
-echo "     ${DIM}Blocks secrets, large files, debug statements, conflict markers${RESET}"
-echo ""
-echo "  ${GREEN}4.${RESET} Commit-msg hook"
-echo "     ${DIM}Enforces conventional commit format (feat/fix/docs/etc.)${RESET}"
-echo ""
-echo "  ${GREEN}5.${RESET} Pre-push hook"
-echo "     ${DIM}Warns about uncommitted changes, blocks WIP commits to main${RESET}"
-echo ""
+if [ "$PREVIEW_ONLY" = true ]; then
+  echo "${YELLOW}PREVIEW MODE: showing what would be installed. No changes will be made.${RESET}"
+  echo ""
+fi
 
+# =============================================================================
+# Preview: Top 10 aliases
+# =============================================================================
+section "What You Get: Top 10 Time Savers"
+
+echo "  ${CYAN}gs${RESET}              ${DIM}git status with branch + ahead/behind${RESET}"
+echo "                    ${DIM}Saves: 8 keystrokes x 30/day = 240/day${RESET}"
+echo ""
+echo "  ${CYAN}gc \"msg\"${RESET}         ${DIM}git add -A && git commit -m \"msg\"${RESET}"
+echo "                    ${DIM}Saves: 25 keystrokes x 15/day = 375/day${RESET}"
+echo ""
+echo "  ${CYAN}gpush${RESET}            ${DIM}git push -u origin <current-branch>${RESET}"
+echo "                    ${DIM}Saves: 30+ keystrokes (no more --set-upstream dance)${RESET}"
+echo ""
+echo "  ${CYAN}glog${RESET}             ${DIM}pretty log with graph, colors, relative dates${RESET}"
+echo "                    ${DIM}Saves: 40+ keystrokes (no more --format flags)${RESET}"
+echo ""
+echo "  ${CYAN}gco${RESET}              ${DIM}checkout branch (fzf interactive picker if available)${RESET}"
+echo "  ${CYAN}gcb <name>${RESET}       ${DIM}git checkout -b <name>${RESET}"
+echo "  ${CYAN}gwip / gunwip${RESET}    ${DIM}quick WIP commit / undo it${RESET}"
+echo "  ${CYAN}grebase-main${RESET}     ${DIM}fetch + rebase onto main (auto-detects main vs master)${RESET}"
+echo "  ${CYAN}pr-create${RESET}        ${DIM}create PR, auto-fill title from branch name${RESET}"
+echo "  ${CYAN}gdash${RESET}            ${DIM}full repo dashboard in one command${RESET}"
+echo ""
+echo "  ${DIM}...plus 35+ more aliases. See aliases.sh for the full list.${RESET}"
+
+if [ "$PREVIEW_ONLY" = true ]; then
+  section "Git Config Extras (gitconfig-extras)"
+  echo "  diff.algorithm = histogram       ${DIM}cleaner diffs${RESET}"
+  echo "  merge.conflictstyle = zdiff3     ${DIM}easier conflict resolution${RESET}"
+  echo "  rebase.autoStash = true          ${DIM}auto-stash before rebase${RESET}"
+  echo "  push.autoSetupRemote = true      ${DIM}no more --set-upstream${RESET}"
+  echo "  rerere.enabled = true            ${DIM}remembers conflict resolutions${RESET}"
+  echo "  core.fsmonitor = true            ${DIM}faster status on large repos${RESET}"
+
+  section "Hooks"
+  echo "  ${CYAN}pre-commit${RESET}   Blocks secrets, large files, debug statements, conflict markers"
+  echo "  ${CYAN}commit-msg${RESET}   Suggests conventional commit format (does not block)"
+  echo "  ${CYAN}pre-push${RESET}     Warns about uncommitted changes, blocks WIP to main"
+
+  echo ""
+  echo "${BOLD}Run without --preview to install.${RESET}"
+  echo ""
+  exit 0
+fi
+
+# =============================================================================
+# Install prompt
+# =============================================================================
+echo ""
 printf "Install all components? [Y/n] "
 read -r install_all
 INSTALL_ALL=false
@@ -131,20 +179,6 @@ INSTALL_ALIASES=false
 if [ "$INSTALL_ALL" = true ]; then
   INSTALL_ALIASES=true
 else
-  echo "Preview of what you get:"
-  echo ""
-  echo "  ${CYAN}gs${RESET}             git status with branch info and ahead/behind count"
-  echo "  ${CYAN}glog${RESET}           beautiful one-line log with colors and graph"
-  echo "  ${CYAN}gwip / gunwip${RESET}  quick WIP commit / undo it"
-  echo "  ${CYAN}gc \"msg\"${RESET}       stage all + commit in one shot"
-  echo "  ${CYAN}gcb branch${RESET}     create and switch to a new branch"
-  echo "  ${CYAN}gpush${RESET}          push + set upstream in one command"
-  echo "  ${CYAN}grebase-main${RESET}   fetch + rebase onto main (auto-detects main vs master)"
-  echo "  ${CYAN}pr-create${RESET}      create PR with title auto-filled from branch name"
-  echo "  ${CYAN}pr-cleanup${RESET}     delete merged branches locally and remotely"
-  echo "  ${CYAN}gdash${RESET}          full repo dashboard in one command"
-  echo "  ${DIM}  ...and 30+ more. See aliases.sh for the full list.${RESET}"
-  echo ""
   printf "Install shell aliases? [Y/n] "
   read -r answer
   if [[ "${answer:-Y}" =~ ^[Yy]$ ]]; then
@@ -156,7 +190,7 @@ if [ "$INSTALL_ALIASES" = true ]; then
   if grep -qF "$SOURCE_LINE" "$SHELL_CONFIG" 2>/dev/null; then
     ok "Already present in $SHELL_CONFIG. Skipping."
   else
-    # Check for conflicts with existing aliases
+    # Check for conflicts with existing commands
     ALIAS_NAMES="gs glog glog1 gtoday gweek gc gwip gunwip gundo gstash gco gcb gpush gdash gclean grebase-main gopen pr-create pr-draft pr-ready pr-cleanup pr-stack greview gwho gwhen gfind gfind-code gdiff-stat gcontrib gchanged gstale gleaderboard gteam gcp greset-hard gclean-files pr-checkout pr-diff"
     conflicts=""
     for name in $ALIAS_NAMES; do
@@ -172,7 +206,6 @@ if [ "$INSTALL_ALIASES" = true ]; then
     backup_file "$SHELL_CONFIG"
 
     if [ "$DETECTED_SHELL" = "fish" ]; then
-      # Fish needs a different source syntax
       FISH_SOURCE="bass source \"$SCRIPT_DIR/aliases.sh\""
       echo "" >> "$SHELL_CONFIG"
       echo "# ai-bu-git-productivity aliases (requires bass: https://github.com/edc/bass)" >> "$SHELL_CONFIG"
@@ -202,16 +235,6 @@ INSTALL_GITCONFIG=false
 if [ "$INSTALL_ALL" = true ]; then
   INSTALL_GITCONFIG=true
 else
-  echo "Preview of settings:"
-  echo ""
-  echo "  ${CYAN}diff.algorithm = histogram${RESET}       cleaner, faster diffs"
-  echo "  ${CYAN}merge.conflictstyle = zdiff3${RESET}     easier conflict resolution"
-  echo "  ${CYAN}rebase.autoStash = true${RESET}          auto-stash before rebase"
-  echo "  ${CYAN}push.autoSetupRemote = true${RESET}      no more --set-upstream"
-  echo "  ${CYAN}rerere.enabled = true${RESET}            remembers conflict resolutions"
-  echo "  ${CYAN}core.fsmonitor = true${RESET}            faster status on large repos"
-  echo "  ${DIM}  ...and more. See gitconfig-extras for the full list.${RESET}"
-  echo ""
   printf "Include gitconfig-extras in your global git config? [Y/n] "
   read -r answer
   if [[ "${answer:-Y}" =~ ^[Yy]$ ]]; then
@@ -224,7 +247,6 @@ if [ "$INSTALL_GITCONFIG" = true ]; then
   if echo "$existing" | grep -qF "$GITCONFIG_PATH"; then
     ok "Already included in global git config. Skipping."
   else
-    # Back up existing gitconfig
     backup_file "$HOME/.gitconfig"
     git config --global --add include.path "$GITCONFIG_PATH"
     ok "Added include.path to global git config."
@@ -235,9 +257,8 @@ else
 fi
 
 # =============================================================================
-# 3. Pre-commit hook
+# 3-5. Hooks
 # =============================================================================
-section "Pre-commit Hook"
 
 install_hook() {
   local hook_source="$1"
@@ -291,30 +312,23 @@ install_hook() {
   fi
 }
 
+section "Pre-commit Hook"
 install_hook \
   "$SCRIPT_DIR/hooks/pre-commit-check" \
   "pre-commit" \
-  "Blocks secrets, large files, debug statements, and conflict markers before commit."
+  "Blocks secrets, large files, debug statements, and conflict markers."
 
-# =============================================================================
-# 4. Commit-msg hook
-# =============================================================================
 section "Commit-msg Hook"
-
 install_hook \
   "$SCRIPT_DIR/hooks/commit-msg" \
   "commit-msg" \
-  "Enforces conventional commit format (feat/fix/docs/etc.) and message quality."
+  "Suggests conventional commit format (does not block your commit)."
 
-# =============================================================================
-# 5. Pre-push hook
-# =============================================================================
 section "Pre-push Hook"
-
 install_hook \
   "$SCRIPT_DIR/hooks/pre-push" \
   "pre-push" \
-  "Warns about uncommitted changes and blocks WIP commits to main/master."
+  "Warns about uncommitted changes, blocks WIP commits to main/master."
 
 # =============================================================================
 # Summary
@@ -330,9 +344,11 @@ if [ -d "$BACKUP_DIR" ]; then
   echo ""
 fi
 
-echo "  Next steps:"
+echo "  Get started:"
 echo "    1. Open a new terminal or run '${CYAN}source $SHELL_CONFIG${RESET}'"
-echo "    2. Try '${CYAN}gdash${RESET}' for a repo overview"
-echo "    3. Try '${CYAN}gs${RESET}' instead of 'git status'"
-echo "    4. Read ${CYAN}workflows.md${RESET} for complete workflow guides"
+echo "    2. Type '${CYAN}gs${RESET}' instead of 'git status'"
+echo "    3. Type '${CYAN}glog${RESET}' instead of 'git log --oneline --graph --decorate --all'"
+echo "    4. Type '${CYAN}gdash${RESET}' for a full repo overview"
+echo ""
+echo "  Read ${CYAN}workflows.md${RESET} for copy-paste commands for every scenario."
 echo ""

@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/aliases.sh
-# A comprehensive git productivity toolkit for engineers who live in the terminal.
+# Git aliases and functions for engineers who type git commands 50+ times a day.
 # Source this file from your .zshrc or .bashrc:
 #   source /path/to/ai-bu-git-productivity/aliases.sh
 #
-# Every alias and function here is built to save real keystrokes on tasks
-# you do multiple times a day. Organized by workflow so you can find what
-# you need fast.
+# Organized by how often you use them. The top section covers commands
+# you will reach for dozens of times per day.
 
 # =============================================================================
-# INTERNAL HELPERS (not meant to be called directly)
+# INTERNAL HELPERS
 # =============================================================================
 
 # Auto-detect the default branch name (main vs master vs something else)
@@ -20,13 +19,11 @@ _git_default_branch() {
     echo "$branch"
     return
   fi
-  # Fallback: check common names on origin
   if git rev-parse --verify origin/main &>/dev/null; then
     echo "main"
   elif git rev-parse --verify origin/master &>/dev/null; then
     echo "master"
   else
-    # Last resort: check local branches
     if git rev-parse --verify main &>/dev/null; then
       echo "main"
     elif git rev-parse --verify master &>/dev/null; then
@@ -37,7 +34,6 @@ _git_default_branch() {
   fi
 }
 
-# Check if gh CLI is available (shared guard for PR functions)
 _require_gh() {
   if ! command -v gh &>/dev/null; then
     echo "Error: gh cli is not installed. Get it at https://cli.github.com"
@@ -45,7 +41,6 @@ _require_gh() {
   fi
 }
 
-# Check if inside a git repo
 _require_git_repo() {
   if ! git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
     echo "Error: not inside a git repository."
@@ -54,54 +49,48 @@ _require_git_repo() {
 }
 
 # =============================================================================
-# DAILY WORKFLOW - The commands you'll use every single day
+# EVERY 5 MINUTES: Status, diff, add, commit, push
 # =============================================================================
+# These replace the commands your fingers already know. Same muscle memory,
+# fewer keystrokes, better output.
 
-# Show git status with branch info and ahead/behind count
+# gs: 2 keystrokes instead of 10. Shows branch, ahead/behind, and file status.
 gs() {
   _require_git_repo || return 1
-  git status -sb "$@"
-}
+  local branch ahead behind upstream
+  branch=$(git branch --show-current 2>/dev/null)
+  [ -z "$branch" ] && branch="(detached HEAD)"
 
-# Beautiful one-line log with colors, graph, and relative dates
-alias glog='git log --oneline --graph --decorate --all --color --format="%C(yellow)%h%C(auto)%d %C(reset)%s %C(cyan)(%cr) %C(blue)<%an>"'
-
-# Condensed log: just hashes, messages, and dates (no graph)
-alias glog1='git log --oneline --format="%C(yellow)%h %C(reset)%s %C(cyan)(%cr)" -20'
-
-# What did I commit today? Great for standups.
-gtoday() {
-  _require_git_repo || return 1
-  local author
-  author=$(git config user.name)
-  if [ -z "$author" ]; then
-    echo "Error: git user.name is not set."
-    return 1
+  upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)
+  if [ -n "$upstream" ]; then
+    ahead=$(git rev-list --count '@{upstream}'..HEAD 2>/dev/null || echo 0)
+    behind=$(git rev-list --count 'HEAD..@{upstream}' 2>/dev/null || echo 0)
+    printf "\033[1;36m%s\033[0m" "$branch"
+    if [ "$ahead" -gt 0 ] || [ "$behind" -gt 0 ]; then
+      printf "  "
+      [ "$ahead" -gt 0 ] && printf "\033[32m+%s\033[0m" "$ahead"
+      [ "$ahead" -gt 0 ] && [ "$behind" -gt 0 ] && printf " "
+      [ "$behind" -gt 0 ] && printf "\033[31m-%s\033[0m" "$behind"
+    else
+      printf "  \033[32mup to date\033[0m"
+    fi
+    echo ""
+  else
+    printf "\033[1;36m%s\033[0m  \033[33mno upstream\033[0m\n" "$branch"
   fi
-  echo "Commits by $author today:"
-  echo ""
-  git log --all --author="$author" --since="midnight" \
-    --format="%C(yellow)%h %C(cyan)%ad %C(reset)%s" \
-    --date=short
+
+  git status --short "$@"
 }
 
-# What did I commit this week? Useful for weekly updates.
-gweek() {
-  _require_git_repo || return 1
-  local author
-  author=$(git config user.name)
-  if [ -z "$author" ]; then
-    echo "Error: git user.name is not set."
-    return 1
-  fi
-  echo "Commits by $author this week:"
-  echo ""
-  git log --all --author="$author" --since="1 week ago" \
-    --format="%C(yellow)%h %C(cyan)%ad %C(reset)%s %C(green)(%D)" \
-    --date=short
-}
+# ga / gaa: stage files
+alias ga='git add'
+alias gaa='git add -A'
 
-# Stage all changes and commit with a message in one shot
+# gd / gds: see what changed
+alias gd='git diff'
+alias gds='git diff --staged'
+
+# gc: stage all + commit in one shot. Saves 20+ keystrokes per commit.
 gc() {
   if [ -z "$1" ]; then
     echo "Usage: gc \"your commit message\""
@@ -110,50 +99,68 @@ gc() {
   git add -A && git commit -m "$*"
 }
 
-# Quick WIP commit: stage everything and commit as WIP (skips CI)
-gwip() {
+# gpush: push and set upstream automatically. No more copying the suggested command.
+gpush() {
   _require_git_repo || return 1
-  git add -A && git commit -m "WIP: work in progress [skip ci]"
+  local branch
+  branch=$(git branch --show-current)
+  git push -u origin "$branch" "$@"
 }
 
-# Undo the last WIP commit, keeping changes staged
-gunwip() {
+# gpull: pull with rebase (no accidental merge commits)
+alias gpull='git pull --rebase'
+
+# gco: switch branches. Uses fzf for interactive selection if available.
+gco() {
   _require_git_repo || return 1
-  local last_msg
-  last_msg=$(git log -1 --format='%s' 2>/dev/null)
-  if [[ "$last_msg" == WIP:* ]]; then
-    git reset --soft HEAD~1
-    echo "WIP commit removed. Changes are staged and ready."
+  if [ -n "$1" ]; then
+    git checkout "$@"
+    return
+  fi
+  if command -v fzf &>/dev/null; then
+    local branch
+    branch=$(git branch --all --format='%(refname:short)' | fzf --height 40% --reverse --prompt="Switch to branch: ")
+    if [ -n "$branch" ]; then
+      branch="${branch#origin/}"
+      git checkout "$branch"
+    fi
   else
-    echo "Last commit is not a WIP commit: $last_msg"
+    echo "Usage: gco <branch-name>"
+    echo "Tip: install fzf for interactive branch selection"
     return 1
   fi
 }
 
-# Safely undo the last commit, keeping all changes staged
-gundo() {
-  _require_git_repo || return 1
-  local last_msg
-  last_msg=$(git log -1 --format='%s' 2>/dev/null)
-  if [ -z "$last_msg" ]; then
-    echo "Error: no commits to undo."
+# gcb: create and switch to a new branch
+gcb() {
+  if [ -z "$1" ]; then
+    echo "Usage: gcb <branch-name>"
     return 1
   fi
-  echo "Undoing commit: $last_msg"
-  git reset --soft HEAD~1
-  echo "Changes are back in staging. Nothing was lost."
+  git checkout -b "$@"
 }
 
-# Amend the last commit with any new staged changes (keeps original message)
+# =============================================================================
+# EVERY HOUR: Log, stash, rebase, amend
+# =============================================================================
+
+# glog: beautiful one-line log with graph, colors, and relative dates.
+# Replaces a 40+ character command with 4 keystrokes.
+alias glog='git log --oneline --graph --decorate --all --color --format="%C(yellow)%h%C(auto)%d %C(reset)%s %C(cyan)(%cr) %C(blue)<%an>"'
+
+# glog1: condensed log, last 20 commits, no graph
+alias glog1='git log --oneline --format="%C(yellow)%h %C(reset)%s %C(cyan)(%cr)" -20'
+
+# gamend: add staged changes to the last commit without changing the message
 alias gamend='git commit --amend --no-edit'
 
-# Amend the last commit and edit the message too
+# gamend-msg: amend the last commit and edit the message
 alias gamend-msg='git commit --amend'
 
-# Stage specific files interactively with patch mode
+# gap: stage specific hunks interactively (patch mode)
 alias gap='git add -p'
 
-# Stash everything including untracked files, with a description
+# gstash: stash everything including untracked files, with an optional description
 gstash() {
   local msg="${1:-}"
   if [ -n "$msg" ]; then
@@ -163,13 +170,13 @@ gstash() {
   fi
 }
 
-# Pop the most recent stash
+# gstash-pop: pop the most recent stash
 alias gstash-pop='git stash pop'
 
-# List all stashes with a clean format
+# gstash-ls: list stashes with a clean format
 alias gstash-ls='git stash list --format="%C(yellow)%gd %C(reset)%s %C(cyan)(%cr)"'
 
-# Fetch and rebase on main/master (auto-detects default branch)
+# grebase-main: fetch and rebase onto the default branch. Auto-detects main vs master.
 grebase-main() {
   _require_git_repo || return 1
   local default_branch
@@ -187,53 +194,105 @@ grebase-main() {
   echo "Rebase complete."
 }
 
-# Quickly switch to a branch with fuzzy matching (uses fzf if available)
-gco() {
-  _require_git_repo || return 1
-  if [ -n "$1" ]; then
-    git checkout "$@"
-    return
-  fi
-  # If fzf is available, use it for interactive branch selection
-  if command -v fzf &>/dev/null; then
-    local branch
-    branch=$(git branch --all --format='%(refname:short)' | fzf --height 40% --reverse --prompt="Switch to branch: ")
-    if [ -n "$branch" ]; then
-      # Strip the "origin/" prefix for remote branches
-      branch="${branch#origin/}"
-      git checkout "$branch"
-    fi
-  else
-    echo "Usage: gco <branch-name>"
-    echo "Tip: install fzf for interactive branch selection"
-    return 1
-  fi
-}
-
-# Create a new branch and switch to it
-gcb() {
-  if [ -z "$1" ]; then
-    echo "Usage: gcb <branch-name>"
-    return 1
-  fi
-  git checkout -b "$@"
-}
-
-# Push current branch and set upstream in one command
-gpush() {
-  _require_git_repo || return 1
-  local branch
-  branch=$(git branch --show-current)
-  git push -u origin "$branch" "$@"
-}
-
-# Pull with rebase (cleaner than merge commits)
-alias gpull='git pull --rebase'
-
-# Fetch all remotes and prune stale tracking branches
+# gfetch: fetch all remotes and prune stale tracking branches
 alias gfetch='git fetch --all --prune'
 
-# Show files changed in the last N commits
+# gb / gba: list branches
+alias gb='git branch'
+alias gba='git branch -a'
+
+# gm: merge
+alias gm='git merge'
+
+# grb: rebase shortcuts
+alias grb='git rebase'
+alias grb-continue='git rebase --continue'
+alias grb-abort='git rebase --abort'
+
+# grs: restore shortcuts
+alias grs='git restore'
+alias grs-staged='git restore --staged'
+
+# =============================================================================
+# SEVERAL TIMES A DAY: WIP workflow, undo, diff views
+# =============================================================================
+
+# gwip: save your work as a WIP commit before switching branches.
+# Stages everything and commits with a WIP prefix that skips CI.
+# Pairs with gunwip to undo it cleanly.
+gwip() {
+  _require_git_repo || return 1
+  local branch
+  branch=$(git branch --show-current 2>/dev/null)
+
+  # Safety: warn if on main/master
+  local default_branch
+  default_branch=$(_git_default_branch)
+  if [ "$branch" = "$default_branch" ]; then
+    printf "\033[33mYou are on %s. WIP commits on the default branch can cause problems.\033[0m\n" "$default_branch"
+    printf "Continue anyway? [y/N] "
+    read -r confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+      echo "Cancelled."
+      return 1
+    fi
+  fi
+
+  git add -A && git commit -m "WIP: work in progress [skip ci]"
+  echo "WIP saved. Use 'gunwip' to undo this commit and get your changes back."
+}
+
+# gunwip: undo the last commit if it was a WIP. Changes stay staged.
+gunwip() {
+  _require_git_repo || return 1
+  local last_msg
+  last_msg=$(git log -1 --format='%s' 2>/dev/null)
+  if [[ "$last_msg" == WIP:* ]]; then
+    git reset --soft HEAD~1
+    echo "WIP commit removed. Changes are staged and ready."
+  else
+    echo "Last commit is not a WIP commit: $last_msg"
+    return 1
+  fi
+}
+
+# gundo: safely undo the last commit. All changes stay staged, nothing is lost.
+gundo() {
+  _require_git_repo || return 1
+  local last_msg
+  last_msg=$(git log -1 --format='%s' 2>/dev/null)
+  if [ -z "$last_msg" ]; then
+    echo "Error: no commits to undo."
+    return 1
+  fi
+  echo "Undoing commit: $last_msg"
+  git reset --soft HEAD~1
+  echo "Changes are back in staging. Nothing was lost."
+}
+
+# gdiff-words: word-level diff instead of line-level (great for prose and config)
+alias gdiff-words='git diff --word-diff=color'
+
+# gdiff-words-staged: word-level diff for staged changes
+alias gdiff-words-staged='git diff --staged --word-diff=color'
+
+# gdiff-staged: show staged changes
+alias gdiff-staged='git diff --staged'
+
+# gdiff-last: show the full diff of the last commit
+alias gdiff-last='git diff HEAD~1 HEAD'
+
+# gdiff-stat: file-level diff stats for a branch vs the default branch
+gdiff-stat() {
+  _require_git_repo || return 1
+  local branch="${1:-HEAD}"
+  local base="${2:-$(_git_default_branch)}"
+  echo "Diff stats for $branch vs $base:"
+  echo ""
+  git diff --stat "$base"..."$branch"
+}
+
+# gchanged: show files changed in the last N commits
 gchanged() {
   _require_git_repo || return 1
   local count="${1:-5}"
@@ -243,46 +302,54 @@ gchanged() {
     git diff --name-only "$(git rev-list --max-parents=0 HEAD)" HEAD
 }
 
-# Open the current repo in your browser
-gopen() {
+# gtoday: what did I commit today? Great for standups.
+gtoday() {
   _require_git_repo || return 1
-  local url
-  url=$(git remote get-url origin 2>/dev/null)
-  if [ -z "$url" ]; then
-    echo "Error: no origin remote found."
+  local author
+  author=$(git config user.name)
+  if [ -z "$author" ]; then
+    echo "Error: git user.name is not set."
     return 1
   fi
-  # Convert SSH URLs to HTTPS
-  url=$(echo "$url" | sed -E 's|^git@([^:]+):|https://\1/|' | sed 's|\.git$||')
-  echo "Opening $url"
-  if command -v xdg-open &>/dev/null; then
-    xdg-open "$url"
-  elif command -v open &>/dev/null; then
-    open "$url"
-  elif command -v wslview &>/dev/null; then
-    wslview "$url"
-  else
-    echo "Could not detect a browser opener. Visit the URL above manually."
+  echo "Commits by $author today:"
+  echo ""
+  git log --all --author="$author" --since="midnight" \
+    --format="%C(yellow)%h %C(cyan)%ad %C(reset)%s" \
+    --date=short
+}
+
+# gweek: what did I commit this week? Useful for weekly updates.
+gweek() {
+  _require_git_repo || return 1
+  local author
+  author=$(git config user.name)
+  if [ -z "$author" ]; then
+    echo "Error: git user.name is not set."
+    return 1
   fi
+  echo "Commits by $author this week:"
+  echo ""
+  git log --all --author="$author" --since="1 week ago" \
+    --format="%C(yellow)%h %C(cyan)%ad %C(reset)%s %C(green)(%D)" \
+    --date=short
 }
 
 # =============================================================================
-# PR WORKFLOW - From branch creation to merge
+# PR WORKFLOW: From branch creation to merge
 # =============================================================================
 
-# Create a PR with a title auto-filled from the branch name
+# pr-create: create a PR with the title auto-filled from the branch name.
+# Your branch name feature/add-auth-retry becomes "Add auth retry" automatically.
 pr-create() {
   _require_gh || return 1
   _require_git_repo || return 1
   local branch title
   branch=$(git branch --show-current)
 
-  # Auto-generate title from branch name: feature/add-auth-retry -> Add auth retry
   if [ -n "$1" ]; then
     title="$*"
   else
     title=$(echo "$branch" | sed -E 's|^(feature|fix|bugfix|hotfix|chore|docs)/||' | tr '-' ' ' | tr '_' ' ')
-    # Capitalize first letter
     title="$(echo "${title:0:1}" | tr '[:lower:]' '[:upper:]')${title:1}"
     echo "Auto-generated title: $title"
     printf "Use this title? [Y/n] "
@@ -293,7 +360,6 @@ pr-create() {
     fi
   fi
 
-  # Push branch if not yet pushed
   if ! git rev-parse --verify "origin/$branch" &>/dev/null; then
     echo "Pushing $branch to origin..."
     git push -u origin "$branch"
@@ -302,7 +368,7 @@ pr-create() {
   gh pr create --title "$title" --fill
 }
 
-# Create a draft PR (for early feedback before it is ready)
+# pr-draft: create a draft PR (for early feedback before it is ready)
 pr-draft() {
   _require_gh || return 1
   _require_git_repo || return 1
@@ -324,7 +390,7 @@ pr-draft() {
   gh pr create --title "$title" --fill --draft
 }
 
-# Mark a draft PR as ready for review and optionally request reviewers
+# pr-ready: mark a draft PR as ready and optionally request reviewers
 pr-ready() {
   _require_gh || return 1
   _require_git_repo || return 1
@@ -339,7 +405,7 @@ pr-ready() {
   fi
 }
 
-# Delete local and remote branches that have been merged
+# pr-cleanup: delete local and remote branches that have been merged
 pr-cleanup() {
   _require_git_repo || return 1
   local default_branch
@@ -349,7 +415,6 @@ pr-cleanup() {
   git checkout "$default_branch"
   git pull --rebase
 
-  # Find merged branches (excluding default and develop)
   local merged
   merged=$(git branch --merged | grep -v '^\*' | grep -vE "^\s*(${default_branch}|develop|staging)$" || true)
 
@@ -372,13 +437,12 @@ pr-cleanup() {
     return 0
   fi
 
-  # Optionally clean up remote branches too
   echo ""
   printf "Also delete these branches from origin? [y/N] "
   read -r confirm_remote
   if [[ "$confirm_remote" =~ ^[Yy]$ ]]; then
     echo "$merged" | while IFS= read -r branch; do
-      branch=$(echo "$branch" | xargs)  # trim whitespace
+      branch=$(echo "$branch" | xargs)
       if git ls-remote --exit-code --heads origin "$branch" &>/dev/null; then
         git push origin --delete "$branch"
         echo "  Deleted origin/$branch"
@@ -388,7 +452,7 @@ pr-cleanup() {
   fi
 }
 
-# Show your stack of PRs with their status
+# pr-stack: show your open PRs with their review status
 pr-stack() {
   _require_gh || return 1
   _require_git_repo || return 1
@@ -407,7 +471,7 @@ pr-stack() {
 {{end}}'
 }
 
-# List PRs that need your review
+# greview: list PRs that need your review
 greview() {
   _require_gh || return 1
   echo "PRs waiting for your review:"
@@ -415,7 +479,7 @@ greview() {
   gh pr list --search "review-requested:@me" --limit 25
 }
 
-# Quickly check out a PR branch by PR number
+# pr-checkout: check out a PR branch by PR number
 pr-checkout() {
   _require_gh || return 1
   if [ -z "$1" ]; then
@@ -425,7 +489,7 @@ pr-checkout() {
   gh pr checkout "$1"
 }
 
-# View PR diff in the terminal
+# pr-diff: view a PR diff in the terminal
 pr-diff() {
   _require_gh || return 1
   local pr="${1:-}"
@@ -437,10 +501,10 @@ pr-diff() {
 }
 
 # =============================================================================
-# INVESTIGATION - Figure out what happened and who did it
+# INVESTIGATION: Figure out what happened and who changed it
 # =============================================================================
 
-# Who changed this file the most? Shows top contributors by commit count.
+# gwho: who changed this file the most? Top contributors by commit count.
 gwho() {
   _require_git_repo || return 1
   local file="${1:-}"
@@ -457,7 +521,7 @@ gwho() {
   git log --format='%aN' -- "$file" | sort | uniq -c | sort -rn | head -10
 }
 
-# When was this line last changed? Formatted blame with age coloring.
+# gwhen: when was this file/line last changed? Formatted blame with relative dates.
 gwhen() {
   _require_git_repo || return 1
   local file="${1:-}"
@@ -470,14 +534,13 @@ gwhen() {
     return 1
   fi
   if [ -n "${2:-}" ]; then
-    # Blame a specific line range
     git blame -L "$2","$2" --date=relative "$file"
   else
     git blame --date=relative "$file"
   fi
 }
 
-# Search commit messages for a string across all branches
+# gfind: search commit messages for a string across all branches
 gfind() {
   _require_git_repo || return 1
   local keyword="${1:-}"
@@ -490,7 +553,7 @@ gfind() {
   git log --all --oneline --grep="$keyword" --format="%C(yellow)%h %C(reset)%s %C(cyan)(%cr) %C(blue)<%an>"
 }
 
-# Search the actual code diff history for a string (finds when code was added/removed)
+# gfind-code: search code diffs for when a string was added or removed
 gfind-code() {
   _require_git_repo || return 1
   local keyword="${1:-}"
@@ -505,29 +568,7 @@ gfind-code() {
     grep -v '^[+-]' | head -30
 }
 
-# Word-level diff instead of line-level (great for prose and config files)
-alias gdiff-words='git diff --word-diff=color'
-
-# Word-level diff for staged changes
-alias gdiff-words-staged='git diff --staged --word-diff=color'
-
-# File-level diff stats for a branch vs the default branch
-gdiff-stat() {
-  _require_git_repo || return 1
-  local branch="${1:-HEAD}"
-  local base="${2:-$(_git_default_branch)}"
-  echo "Diff stats for $branch vs $base:"
-  echo ""
-  git diff --stat "$base"..."$branch"
-}
-
-# Show what changed between two commits or refs
-alias gdiff-staged='git diff --staged'
-
-# Show the full diff of the last commit
-alias gdiff-last='git diff HEAD~1 HEAD'
-
-# Contribution stats for the current repo
+# gcontrib: your contribution stats for the current repo
 gcontrib() {
   _require_git_repo || return 1
   local author
@@ -553,36 +594,11 @@ gcontrib() {
   echo "  Files:    ${files:-0} touched"
 }
 
-# Cherry-pick with conflict resolution hints
-gcp() {
-  _require_git_repo || return 1
-  if [ -z "$1" ]; then
-    echo "Usage: gcp <commit-hash> [commit-hash...]"
-    return 1
-  fi
-  for commit in "$@"; do
-    echo "Cherry-picking $commit..."
-    if ! git cherry-pick "$commit"; then
-      echo ""
-      echo "Conflict detected. Here is what to do:"
-      echo "  1. Fix the conflicts in the files listed above"
-      echo "  2. Stage the resolved files:  git add <file>"
-      echo "  3. Continue the cherry-pick:  git cherry-pick --continue"
-      echo "  4. Or abort entirely:         git cherry-pick --abort"
-      echo ""
-      echo "Files with conflicts:"
-      git diff --name-only --diff-filter=U
-      return 1
-    fi
-  done
-  echo "Cherry-pick complete."
-}
-
 # =============================================================================
-# TEAM COLLABORATION - See what everyone is working on
+# TEAM: See what everyone is working on
 # =============================================================================
 
-# What is everyone working on? Shows open branches and their last commit.
+# gteam: active branches with last commit and author
 gteam() {
   _require_git_repo || return 1
   echo "Active branches (by most recent commit):"
@@ -593,7 +609,7 @@ gteam() {
     --count=20 | grep -v 'origin/HEAD'
 }
 
-# Find stale branches with no commits in 2+ weeks
+# gstale: find branches with no commits in N+ days (default 14)
 gstale() {
   _require_git_repo || return 1
   local days="${1:-14}"
@@ -619,7 +635,7 @@ gstale() {
   fi
 }
 
-# Show a leaderboard of who committed the most in the last 30 days
+# gleaderboard: commit leaderboard for the last N days (default 30)
 gleaderboard() {
   _require_git_repo || return 1
   local days="${1:-30}"
@@ -629,10 +645,9 @@ gleaderboard() {
 }
 
 # =============================================================================
-# DASHBOARD - Full repo overview in one command
+# DASHBOARD: Full repo overview in one command
 # =============================================================================
 
-# Git dashboard: a snapshot of your entire repo state
 gdash() {
   _require_git_repo || return 1
   echo "========================================"
@@ -640,7 +655,6 @@ gdash() {
   echo "========================================"
   echo ""
 
-  # Current branch
   local branch
   branch=$(git branch --show-current 2>/dev/null)
   if [ -z "$branch" ]; then
@@ -648,7 +662,6 @@ gdash() {
   fi
   echo "Branch:  $branch"
 
-  # Ahead/behind status
   local upstream
   upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)
   if [ -n "$upstream" ]; then
@@ -661,7 +674,6 @@ gdash() {
   fi
   echo ""
 
-  # Uncommitted changes
   echo "--- Uncommitted Changes ---"
   local status_output
   status_output=$(git status --short 2>/dev/null)
@@ -674,7 +686,6 @@ gdash() {
   fi
   echo ""
 
-  # Stash count
   local stash_count
   stash_count=$(git stash list 2>/dev/null | wc -l | tr -d ' ')
   if [ "$stash_count" -gt 0 ]; then
@@ -683,12 +694,10 @@ gdash() {
     echo ""
   fi
 
-  # Recent commits
   echo "--- Recent Commits (last 5) ---"
   git log --oneline -5 --format="  %C(yellow)%h %C(reset)%s %C(cyan)(%cr)" 2>/dev/null
   echo ""
 
-  # Open PRs (only if gh is available)
   if command -v gh &>/dev/null; then
     echo "--- Open PRs (this repo) ---"
     local prs
@@ -709,10 +718,10 @@ gdash() {
 }
 
 # =============================================================================
-# CLEANUP - Keep your repo tidy
+# CLEANUP: Keep your repo tidy
 # =============================================================================
 
-# Delete local branches that have been merged (with confirmation)
+# gclean: delete local branches that have been merged (with confirmation)
 gclean() {
   _require_git_repo || return 1
   local default_branch
@@ -737,7 +746,7 @@ gclean() {
   fi
 }
 
-# Nuke all untracked files and directories (with confirmation)
+# gclean-files: remove all untracked files and directories (with confirmation)
 gclean-files() {
   _require_git_repo || return 1
   echo "Untracked files that would be removed:"
@@ -753,7 +762,7 @@ gclean-files() {
   fi
 }
 
-# Reset current branch to match the remote exactly (with confirmation)
+# greset-hard: reset current branch to match the remote exactly (with confirmation)
 greset-hard() {
   _require_git_repo || return 1
   local branch
@@ -778,22 +787,52 @@ greset-hard() {
   fi
 }
 
-# =============================================================================
-# QUICK SHORTCUTS - Common operations in fewer keystrokes
-# =============================================================================
+# gopen: open the current repo in your browser
+gopen() {
+  _require_git_repo || return 1
+  local url
+  url=$(git remote get-url origin 2>/dev/null)
+  if [ -z "$url" ]; then
+    echo "Error: no origin remote found."
+    return 1
+  fi
+  url=$(echo "$url" | sed -E 's|^git@([^:]+):|https://\1/|' | sed 's|\.git$||')
+  echo "Opening $url"
+  if command -v xdg-open &>/dev/null; then
+    xdg-open "$url"
+  elif command -v open &>/dev/null; then
+    open "$url"
+  elif command -v wslview &>/dev/null; then
+    wslview "$url"
+  else
+    echo "Could not detect a browser opener. Visit the URL above manually."
+  fi
+}
 
-# Short aliases for the stuff you type a hundred times a day
-alias ga='git add'
-alias gaa='git add -A'
-alias gd='git diff'
-alias gds='git diff --staged'
-alias gb='git branch'
-alias gba='git branch -a'
-alias gm='git merge'
+# gcp: cherry-pick with conflict resolution hints
+gcp() {
+  _require_git_repo || return 1
+  if [ -z "$1" ]; then
+    echo "Usage: gcp <commit-hash> [commit-hash...]"
+    return 1
+  fi
+  for commit in "$@"; do
+    echo "Cherry-picking $commit..."
+    if ! git cherry-pick "$commit"; then
+      echo ""
+      echo "Conflict detected. Here is what to do:"
+      echo "  1. Fix the conflicts in the files listed above"
+      echo "  2. Stage the resolved files:  git add <file>"
+      echo "  3. Continue the cherry-pick:  git cherry-pick --continue"
+      echo "  4. Or abort entirely:         git cherry-pick --abort"
+      echo ""
+      echo "Files with conflicts:"
+      git diff --name-only --diff-filter=U
+      return 1
+    fi
+  done
+  echo "Cherry-pick complete."
+}
+
 alias gcp-continue='git cherry-pick --continue'
 alias gcp-abort='git cherry-pick --abort'
-alias grb='git rebase'
-alias grb-continue='git rebase --continue'
-alias grb-abort='git rebase --abort'
-alias grs='git restore'
-alias grs-staged='git restore --staged'
