@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# ai-bu-git-productivity/hooks/commit-msg
+# Validates commit message quality before finalizing.
+#
+# Install by copying to .git/hooks/commit-msg (or use install.sh):
+#   cp hooks/commit-msg .git/hooks/commit-msg
+#   chmod +x .git/hooks/commit-msg
+
+set -euo pipefail
+
+MSG_FILE="$1"
+MSG=$(head -1 "$MSG_FILE")
+
+# Strip leading whitespace for checking
+MSG_TRIMMED=$(echo "$MSG" | sed 's/^[[:space:]]*//')
+
+# ─── Ignore auto-generated messages (merge, revert, WIP) ─────────────────────
+if echo "$MSG_TRIMMED" | grep -qE '^(Merge|Revert|WIP:|fixup!|squash!)'; then
+  exit 0
+fi
+
+warnings=0
+
+# ─── Check minimum length ────────────────────────────────────────────────────
+msg_len=${#MSG_TRIMMED}
+if [ "$msg_len" -lt 10 ]; then
+  echo "WARNING: Commit message is too short ($msg_len chars). Aim for at least 10 characters."
+  echo "  Your message: \"$MSG_TRIMMED\""
+  warnings=$((warnings + 1))
+fi
+
+# ─── Check that it starts with a capital letter ──────────────────────────────
+first_char=$(echo "$MSG_TRIMMED" | cut -c1)
+if ! echo "$first_char" | grep -q '[A-Z]'; then
+  echo "WARNING: Commit message should start with a capital letter."
+  echo "  Your message: \"$MSG_TRIMMED\""
+  warnings=$((warnings + 1))
+fi
+
+if [ "$warnings" -gt 0 ]; then
+  echo ""
+  echo "Commit will proceed, but consider improving your message next time."
+fi
+
+exit 0

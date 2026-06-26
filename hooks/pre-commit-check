@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/hooks/pre-commit-check
-# A simple pre-commit hook that catches common mistakes before they land.
+# A pre-commit hook that catches common mistakes before they land.
 #
 # Install by copying to .git/hooks/pre-commit (or use install.sh):
 #   cp hooks/pre-commit-check .git/hooks/pre-commit
@@ -9,6 +9,7 @@
 set -euo pipefail
 
 errors=0
+warnings=0
 
 # ─── Check for .env files ────────────────────────────────────────────────────
 env_files=$(git diff --cached --name-only | grep -E '\.env($|\.)' || true)
@@ -24,7 +25,6 @@ fi
 large_file_limit=5242880  # 5 MB in bytes
 while IFS= read -r file; do
   [ -z "$file" ] && continue
-  # Skip deleted files
   if [ ! -f "$file" ]; then
     continue
   fi
@@ -67,10 +67,81 @@ if [ -n "$cred_files" ]; then
   echo "$cred_files"
   echo "Double-check that these do not contain secrets."
   echo ""
-  # This is a warning, not a hard block
+  warnings=$((warnings + 1))
+fi
+
+# ─── Check for AWS keys or tokens ────────────────────────────────────────────
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  if [ ! -f "$file" ]; then
+    continue
+  fi
+  # Match AWS access key IDs, secret keys, and generic API tokens
+  if grep -nE '(AKIA[0-9A-Z]{16}|aws_secret_access_key|aws_access_key_id)\s*[=:]' "$file" 2>/dev/null; then
+    echo "ERROR: Possible AWS credentials found in '$file'."
+    echo "Remove hardcoded keys and use environment variables or a secrets manager."
+    echo ""
+    errors=$((errors + 1))
+  fi
+done <<< "$(git diff --cached --name-only --diff-filter=d)"
+
+# ─── Check for TODO/FIXME/HACK markers (warn only) ───────────────────────────
+marker_found=0
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  if [ ! -f "$file" ]; then
+    continue
+  fi
+  matches=$(grep -nE '\b(TODO|FIXME|HACK)\b' "$file" 2>/dev/null || true)
+  if [ -n "$matches" ]; then
+    if [ "$marker_found" -eq 0 ]; then
+      echo "WARNING: TODO/FIXME/HACK markers found in staged files:"
+      marker_found=1
+    fi
+    echo "  $file:"
+    echo "$matches" | while IFS= read -r line; do
+      echo "    $line"
+    done
+  fi
+done <<< "$(git diff --cached --name-only --diff-filter=d)"
+
+if [ "$marker_found" -eq 1 ]; then
+  echo "  Consider resolving these before committing, or ignore if intentional."
+  echo ""
+  warnings=$((warnings + 1))
+fi
+
+# ─── Check for trailing whitespace ───────────────────────────────────────────
+trailing_ws_files=""
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  if [ ! -f "$file" ]; then
+    continue
+  fi
+  # Skip binary files
+  if file "$file" | grep -q "binary" 2>/dev/null; then
+    continue
+  fi
+  if grep -qE ' +$' "$file" 2>/dev/null; then
+    trailing_ws_files="$trailing_ws_files $file"
+  fi
+done <<< "$(git diff --cached --name-only --diff-filter=d)"
+
+if [ -n "$trailing_ws_files" ]; then
+  echo "WARNING: Trailing whitespace found in:"
+  for f in $trailing_ws_files; do
+    echo "  $f"
+  done
+  echo "Consider running: sed -i 's/[[:space:]]*$//' <file>"
+  echo ""
+  warnings=$((warnings + 1))
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
+if [ "$warnings" -gt 0 ]; then
+  echo "Pre-commit check completed with $warnings warning(s). Review the messages above."
+fi
+
 if [ "$errors" -gt 0 ]; then
   echo "Pre-commit check failed with $errors error(s). Fix the issues above and try again."
   exit 1

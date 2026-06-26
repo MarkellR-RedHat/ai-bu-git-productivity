@@ -142,3 +142,182 @@ gunwip() {
     return 1
   fi
 }
+
+# ─── Contribution stats for the current repo ─────────────────────────────────
+gcontrib() {
+  local author
+  author=$(git config user.name)
+  if [ -z "$author" ]; then
+    echo "Error: git user.name is not set."
+    return 1
+  fi
+  echo "Contribution stats for $author:"
+  echo ""
+  local commits
+  commits=$(git rev-list --author="$author" --count HEAD 2>/dev/null || echo 0)
+  echo "  Commits:  $commits"
+  local stats
+  stats=$(git log --author="$author" --pretty=tformat: --numstat 2>/dev/null |
+    awk '{ added += $1; removed += $2; files++ } END { printf "%d %d %d", added, removed, files }')
+  local added removed files
+  added=$(echo "$stats" | cut -d' ' -f1)
+  removed=$(echo "$stats" | cut -d' ' -f2)
+  files=$(echo "$stats" | cut -d' ' -f3)
+  echo "  Added:    +${added:-0} lines"
+  echo "  Removed:  -${removed:-0} lines"
+  echo "  Files:    ${files:-0} touched"
+}
+
+# ─── Search commit messages by keyword ────────────────────────────────────────
+gfind() {
+  local keyword="${1:-}"
+  if [ -z "$keyword" ]; then
+    echo "Usage: gfind <keyword>"
+    return 1
+  fi
+  echo "Commits matching \"$keyword\":"
+  echo ""
+  git log --all --oneline --grep="$keyword"
+}
+
+# ─── Show files changed in the last N commits ────────────────────────────────
+gchanged() {
+  local count="${1:-5}"
+  echo "Files changed in the last $count commit(s):"
+  echo ""
+  git diff --name-only HEAD~"$count" HEAD 2>/dev/null || \
+    git diff --name-only "$(git rev-list --max-parents=0 HEAD)" HEAD
+}
+
+# ─── What you committed today ────────────────────────────────────────────────
+gtoday() {
+  local author
+  author=$(git config user.name)
+  if [ -z "$author" ]; then
+    echo "Error: git user.name is not set."
+    return 1
+  fi
+  echo "Commits by $author today:"
+  echo ""
+  git log --all --author="$author" --since="midnight" \
+    --format="%C(yellow)%h %C(cyan)%ad %C(reset)%s" \
+    --date=short
+}
+
+# ─── Fetch and rebase on main/master (auto-detects default branch) ────────────
+grebase-main() {
+  local default_branch
+  default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
+  if [ -z "$default_branch" ]; then
+    # Fallback: check if main or master exists on origin
+    if git rev-parse --verify origin/main &>/dev/null; then
+      default_branch="main"
+    elif git rev-parse --verify origin/master &>/dev/null; then
+      default_branch="master"
+    else
+      echo "Error: could not detect default branch. Neither main nor master found on origin."
+      return 1
+    fi
+  fi
+  local current_branch
+  current_branch=$(git branch --show-current)
+  if [ "$current_branch" = "$default_branch" ]; then
+    echo "You are already on $default_branch. Pulling latest changes."
+    git pull --rebase
+    return
+  fi
+  echo "Fetching origin and rebasing $current_branch onto origin/$default_branch..."
+  git fetch origin "$default_branch"
+  git rebase "origin/$default_branch"
+  echo "Rebase complete."
+}
+
+# ─── Open current repo in the browser ────────────────────────────────────────
+gopen() {
+  local url
+  url=$(git remote get-url origin 2>/dev/null)
+  if [ -z "$url" ]; then
+    echo "Error: no origin remote found."
+    return 1
+  fi
+  # Convert SSH URLs to HTTPS
+  url=$(echo "$url" | sed -E 's|^git@([^:]+):|https://\1/|' | sed 's|\.git$||')
+  echo "Opening $url"
+  if command -v xdg-open &>/dev/null; then
+    xdg-open "$url"
+  elif command -v open &>/dev/null; then
+    open "$url"
+  elif command -v wslview &>/dev/null; then
+    wslview "$url"
+  else
+    echo "Could not detect a browser opener. Visit the URL above manually."
+  fi
+}
+
+# ─── Git dashboard: a snapshot of your repo state ────────────────────────────
+gdash() {
+  echo "========================================"
+  echo "  Git Dashboard"
+  echo "========================================"
+  echo ""
+
+  # Current branch
+  local branch
+  branch=$(git branch --show-current 2>/dev/null)
+  if [ -z "$branch" ]; then
+    branch="(detached HEAD)"
+  fi
+  echo "Branch:  $branch"
+
+  # Ahead/behind status
+  local upstream
+  upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)
+  if [ -n "$upstream" ]; then
+    local ahead behind
+    ahead=$(git rev-list --count '@{upstream}'..HEAD 2>/dev/null || echo 0)
+    behind=$(git rev-list --count 'HEAD..@{upstream}' 2>/dev/null || echo 0)
+    echo "Remote:  $upstream (ahead $ahead / behind $behind)"
+  else
+    echo "Remote:  no upstream configured"
+  fi
+  echo ""
+
+  # Uncommitted changes
+  echo "--- Uncommitted Changes ---"
+  local status_output
+  status_output=$(git status --short 2>/dev/null)
+  if [ -z "$status_output" ]; then
+    echo "  Working tree clean."
+  else
+    echo "$status_output" | while IFS= read -r line; do
+      echo "  $line"
+    done
+  fi
+  echo ""
+
+  # Recent commits
+  echo "--- Recent Commits (last 5) ---"
+  git log --oneline -5 2>/dev/null | while IFS= read -r line; do
+    echo "  $line"
+  done
+  echo ""
+
+  # Open PRs (only if gh is available)
+  if command -v gh &>/dev/null; then
+    echo "--- Open PRs (this repo) ---"
+    local prs
+    prs=$(gh pr list --limit 5 --state open 2>/dev/null)
+    if [ -z "$prs" ]; then
+      echo "  No open PRs."
+    else
+      echo "$prs" | while IFS= read -r line; do
+        echo "  $line"
+      done
+    fi
+  else
+    echo "--- Open PRs ---"
+    echo "  Install gh cli to see open PRs here."
+  fi
+  echo ""
+  echo "========================================"
+}
