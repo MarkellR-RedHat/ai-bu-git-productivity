@@ -1,5 +1,7 @@
 # Git Productivity Toolkit
 
+Part of the [AI BU](https://github.com/MarkellR-RedHat/ai-bu-hub) tool suite.
+
 **You type `git status` 30 times a day.** That is 330 keystrokes spent on a command you could run in two. Multiply by every `git add -A && git commit -m`, every `git log --oneline --graph --decorate --all`, every time you copy-paste the upstream push command Git helpfully suggests after rejecting yours.
 
 This toolkit gives you 40+ shell aliases and functions that replace the commands you already use with shorter, smarter versions. No new workflows to learn. No plugins to configure. Just the same Git, faster.
@@ -263,6 +265,22 @@ Optional, per-repo. Bypass any hook with `--no-verify`.
 ## Workflows
 
 See [workflows.md](workflows.md) for copy-paste recipes: fix a prod bug, undo a push to main, resolve rebase conflicts, prep for standup, and more.
+
+## Pair with Other AI BU Tools
+
+This toolkit handles the git plumbing. The tools below handle what happens before, during, and after the code work.
+
+| When | Tool | What it does |
+|------|------|--------------|
+| Before a meeting | [meeting-notes](https://github.com/MarkellR-RedHat/ai-bu-meeting-notes) | Structured agendas, action tracking, decision logs |
+| After a PR merge | [shipped-digest](https://github.com/MarkellR-RedHat/ai-bu-shipped-digest) | Turns merged PRs into a narrative digest for stakeholders |
+| Friday afternoon | [status-report](https://github.com/MarkellR-RedHat/ai-bu-status-report) | Weekly status from git history and GitHub data |
+| Writing a commit message | [style-checker](https://github.com/MarkellR-RedHat/ai-bu-style-checker) | Catches product name typos (OpenShift, not Openshift) |
+| Reviewing a PR | [review-as-persona](https://github.com/MarkellR-RedHat/ai-bu-review-as-persona) | Reviews code from specific perspectives (security, perf, API design) |
+
+## Pro Tip
+
+Run `gtoday` before standup to see exactly what you shipped. Then pipe that context into `/status-report` from [ai-bu-status-report](https://github.com/MarkellR-RedHat/ai-bu-status-report) for a polished update. On a team of six, this saves roughly 20 minutes per standup because nobody is searching their terminal history trying to remember what they did yesterday.
 
 ## Requirements
 

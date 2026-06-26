@@ -2,8 +2,6 @@
 
 Copy-paste commands for common scenarios. Assumes this toolkit is installed.
 
----
-
 ## I need to start a new feature
 
 ```bash
@@ -285,18 +283,16 @@ gc "fix: remove leaked credential"
 - Merge to put your branch INTO main (usually via GitHub PR)
 - Never rebase a branch that other people are also pushing to
 
----
-
 ## Pair with other AI BU tools
 
 This toolkit handles the git plumbing. The tools below handle what happens before, during, and after the code work.
 
 | When | Tool | What it does |
-|------|------|-------------|
-| Before a meeting | [ai-bu-meeting-notes](/meeting-notes) | Structured agendas, action tracking, decision logs |
-| After a PR merge | [ai-bu-shipped-digest](/shipped) | Turns merged PRs into a narrative digest for stakeholders |
-| Friday afternoon | [ai-bu-status-report](/status-report) | Weekly status from git history + GitHub data |
-| Writing a commit message | [ai-bu-style-checker](/style-check) | Catches product name typos (OpenShift, not Openshift) |
-| Reviewing a PR | [ai-bu-review-as-persona](/review-as-persona) | Reviews code from specific perspectives (security, perf, API design) |
+|------|------|--------------|
+| Before a meeting | [meeting-notes](https://github.com/MarkellR-RedHat/ai-bu-meeting-notes) | Structured agendas, action tracking, decision logs |
+| After a PR merge | [shipped-digest](https://github.com/MarkellR-RedHat/ai-bu-shipped-digest) | Turns merged PRs into a narrative digest for stakeholders |
+| Friday afternoon | [status-report](https://github.com/MarkellR-RedHat/ai-bu-status-report) | Weekly status from git history and GitHub data |
+| Writing a commit message | [style-checker](https://github.com/MarkellR-RedHat/ai-bu-style-checker) | Catches product name typos (OpenShift, not Openshift) |
+| Reviewing a PR | [review-as-persona](https://github.com/MarkellR-RedHat/ai-bu-review-as-persona) | Reviews code from specific perspectives (security, perf, API design) |
 
-All of these are Claude Code slash commands. Install them from [ai-bu-hub](https://github.com/redhat-ai-tools/ai-bu-hub).
+All of these are Claude Code slash commands. Install them from [ai-bu-hub](https://github.com/MarkellR-RedHat/ai-bu-hub).
