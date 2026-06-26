@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/install.sh
-# Interactive installer for the git productivity toolkit.
-# Detects your shell, previews what will be installed, backs up existing
-# configs, and lets you pick components.
+# Detects your shell, backs up configs, installs aliases/hooks/gitconfig.
 #
 # Usage:
 #   bash install.sh           # interactive install
-#   bash install.sh --preview # show what would be installed without changing anything
+#   bash install.sh --preview # dry run, no changes
 
 set -euo pipefail
 
@@ -94,17 +92,13 @@ echo "${BOLD}============================================${RESET}"
 echo "${BOLD}  Git Productivity Toolkit${RESET}"
 echo "${BOLD}============================================${RESET}"
 echo ""
-echo "  You type 'git status' ~30 times a day."
-echo "  That is 300 keystrokes. ${CYAN}gs${RESET} does the same in 2."
-echo ""
-echo "  Detected shell:  ${CYAN}$DETECTED_SHELL${RESET}"
-echo "  Shell config:    ${CYAN}$SHELL_CONFIG${RESET}"
+echo "  Shell:   ${CYAN}$DETECTED_SHELL${RESET}"
+echo "  Config:  ${CYAN}$SHELL_CONFIG${RESET}"
 echo ""
 
 if [ "$DETECTED_SHELL" = "fish" ]; then
-  echo "${YELLOW}NOTE: Fish shell detected. The aliases use bash/zsh syntax."
-  echo "They will be sourced via a bash compatibility layer (bass plugin)."
-  echo "Some features may not work perfectly. Bash or zsh is recommended.${RESET}"
+  echo "${YELLOW}NOTE: Fish detected. Aliases use bash/zsh syntax and need the bass plugin."
+  echo "Bash or zsh recommended.${RESET}"
   echo ""
 fi
 
@@ -116,28 +110,20 @@ fi
 # =============================================================================
 # Preview: Top 10 aliases
 # =============================================================================
-section "What You Get: Top 10 Time Savers"
+section "What You Get"
 
-echo "  ${CYAN}gs${RESET}              ${DIM}git status with branch + ahead/behind${RESET}"
-echo "                    ${DIM}Saves: 8 keystrokes x 30/day = 240/day${RESET}"
+echo "  ${CYAN}gs${RESET}              ${DIM}status with branch + ahead/behind${RESET}"
+echo "  ${CYAN}gc \"msg\"${RESET}         ${DIM}stage all + commit${RESET}"
+echo "  ${CYAN}gpush${RESET}            ${DIM}push + auto set upstream${RESET}"
+echo "  ${CYAN}glog${RESET}             ${DIM}graph log with colors and dates${RESET}"
+echo "  ${CYAN}gco${RESET}              ${DIM}checkout (fzf picker if no arg)${RESET}"
+echo "  ${CYAN}gcb <name>${RESET}       ${DIM}create + switch branch${RESET}"
+echo "  ${CYAN}gwip / gunwip${RESET}    ${DIM}WIP commit / undo it${RESET}"
+echo "  ${CYAN}grebase-main${RESET}     ${DIM}fetch + rebase onto main/master${RESET}"
+echo "  ${CYAN}pr-create${RESET}        ${DIM}create PR from branch name${RESET}"
+echo "  ${CYAN}gdash${RESET}            ${DIM}full repo dashboard${RESET}"
 echo ""
-echo "  ${CYAN}gc \"msg\"${RESET}         ${DIM}git add -A && git commit -m \"msg\"${RESET}"
-echo "                    ${DIM}Saves: 25 keystrokes x 15/day = 375/day${RESET}"
-echo ""
-echo "  ${CYAN}gpush${RESET}            ${DIM}git push -u origin <current-branch>${RESET}"
-echo "                    ${DIM}Saves: 30+ keystrokes (no more --set-upstream dance)${RESET}"
-echo ""
-echo "  ${CYAN}glog${RESET}             ${DIM}pretty log with graph, colors, relative dates${RESET}"
-echo "                    ${DIM}Saves: 40+ keystrokes (no more --format flags)${RESET}"
-echo ""
-echo "  ${CYAN}gco${RESET}              ${DIM}checkout branch (fzf interactive picker if available)${RESET}"
-echo "  ${CYAN}gcb <name>${RESET}       ${DIM}git checkout -b <name>${RESET}"
-echo "  ${CYAN}gwip / gunwip${RESET}    ${DIM}quick WIP commit / undo it${RESET}"
-echo "  ${CYAN}grebase-main${RESET}     ${DIM}fetch + rebase onto main (auto-detects main vs master)${RESET}"
-echo "  ${CYAN}pr-create${RESET}        ${DIM}create PR, auto-fill title from branch name${RESET}"
-echo "  ${CYAN}gdash${RESET}            ${DIM}full repo dashboard in one command${RESET}"
-echo ""
-echo "  ${DIM}...plus 35+ more aliases. See aliases.sh for the full list.${RESET}"
+echo "  ${DIM}...plus 35+ more. See aliases.sh for the full list.${RESET}"
 
 if [ "$PREVIEW_ONLY" = true ]; then
   section "Git Config Extras (gitconfig-extras)"
@@ -316,13 +302,13 @@ section "Pre-commit Hook"
 install_hook \
   "$SCRIPT_DIR/hooks/pre-commit-check" \
   "pre-commit" \
-  "Blocks secrets, large files, debug statements, and conflict markers."
+  "Blocks secrets, large files, debug statements, conflict markers."
 
 section "Commit-msg Hook"
 install_hook \
   "$SCRIPT_DIR/hooks/commit-msg" \
   "commit-msg" \
-  "Suggests conventional commit format (does not block your commit)."
+  "Suggests conventional commit format. Never blocks."
 
 section "Pre-push Hook"
 install_hook \
@@ -335,20 +321,17 @@ install_hook \
 # =============================================================================
 echo ""
 echo "${BOLD}============================================${RESET}"
-echo "${GREEN}  Installation complete${RESET}"
+echo "${GREEN}  Done.${RESET}"
 echo "${BOLD}============================================${RESET}"
 echo ""
 
 if [ -d "$BACKUP_DIR" ]; then
-  echo "  Backups saved to: ${CYAN}$BACKUP_DIR${RESET}"
+  echo "  Backups: ${CYAN}$BACKUP_DIR${RESET}"
   echo ""
 fi
 
-echo "  Get started:"
-echo "    1. Open a new terminal or run '${CYAN}source $SHELL_CONFIG${RESET}'"
-echo "    2. Type '${CYAN}gs${RESET}' instead of 'git status'"
-echo "    3. Type '${CYAN}glog${RESET}' instead of 'git log --oneline --graph --decorate --all'"
-echo "    4. Type '${CYAN}gdash${RESET}' for a full repo overview"
-echo ""
-echo "  Read ${CYAN}workflows.md${RESET} for copy-paste commands for every scenario."
+echo "  Next steps:"
+echo "    1. Run '${CYAN}source $SHELL_CONFIG${RESET}' or open a new terminal"
+echo "    2. Try ${CYAN}gs${RESET}, ${CYAN}glog${RESET}, ${CYAN}gdash${RESET}"
+echo "    3. See ${CYAN}workflows.md${RESET} for copy-paste commands"
 echo ""

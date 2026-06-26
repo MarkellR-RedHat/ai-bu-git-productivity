@@ -1,27 +1,21 @@
 # Git Productivity Toolkit
 
-You type `git status` 30 times a day. That is 300 keystrokes. `gs` does the same thing in 2.
+40+ aliases and functions I actually use every day. `gs` instead of `git status`. `gc "msg"` instead of `git add -A && git commit -m "msg"`. `glog` instead of the 42-character log command nobody remembers.
 
-You type `git add -A && git commit -m "message"` 15 times a day. That is 525 keystrokes. `gc "message"` does it in 14.
+Three optional git hooks that catch secrets, suggest conventional commits, and block WIP pushes to main.
 
-You type `git log --oneline --graph --decorate --all` to see the branch graph. That is 42 keystrokes. `glog` does it in 4.
-
-**Estimated keystrokes saved per day: 1,500+**
-
-That is 30 minutes per week you get back just from shorter commands, better output, and fewer mistakes.
-
-## Quick Start
+## Install
 
 ```bash
 git clone https://github.com/MarkellR-RedHat/ai-bu-git-productivity.git
 cd ai-bu-git-productivity
-bash install.sh            # interactive: picks your shell, backs up configs
-bash install.sh --preview  # see what would be installed without changing anything
+bash install.sh            # detects your shell, backs up configs, asks before changing anything
+bash install.sh --preview  # dry run
 ```
 
-## Top 10 Aliases: Before and After
+## What You Get
 
-### 1. `gs` instead of `git status` (saves 8 keystrokes, 30x/day)
+### 1. `gs` instead of `git status`
 
 ```bash
 # BEFORE:
@@ -34,9 +28,9 @@ main  +2 -0
 ?? notes.txt
 ```
 
-Shows your branch name, how far ahead/behind you are, and changed files in a clean format.
+Branch, ahead/behind, and changed files at a glance.
 
-### 2. `gc "msg"` instead of `git add -A && git commit -m "msg"` (saves 25 keystrokes, 15x/day)
+### 2. `gc "msg"` instead of `git add -A && git commit -m "msg"`
 
 ```bash
 # BEFORE:
@@ -47,9 +41,7 @@ git commit -m "feat: add retry logic"
 gc "feat: add retry logic"
 ```
 
-Stages everything and commits in one shot.
-
-### 3. `glog` instead of `git log --oneline --graph --decorate --all` (saves 38 keystrokes)
+### 3. `glog` instead of `git log --oneline --graph --decorate --all`
 
 ```bash
 # BEFORE:
@@ -63,9 +55,7 @@ glog
 * 7g8h9i0 fix: auth timeout                       (yesterday) <Jane>
 ```
 
-Color-coded graph with relative dates and author names.
-
-### 4. `gpush` instead of the first-push dance (saves 30+ keystrokes)
+### 4. `gpush` instead of the first-push dance
 
 ```bash
 # BEFORE:
@@ -77,9 +67,9 @@ git push --set-upstream origin feature/foo
 gpush
 ```
 
-Pushes and sets upstream automatically. No more copying the suggested command.
+Sets upstream automatically. No more copying the suggested command.
 
-### 5. `gwip` / `gunwip` for saving work fast
+### 5. `gwip` / `gunwip`
 
 ```bash
 gwip                   # stages everything, commits as WIP [skip ci]
@@ -87,9 +77,7 @@ gwip                   # stages everything, commits as WIP [skip ci]
 gunwip                 # undoes the WIP commit, leaves changes staged
 ```
 
-Warns you if you try to WIP on main. Pairs with `gunwip` to pick up where you left off.
-
-### 6. `grebase-main` instead of the fetch-and-rebase dance
+### 6. `grebase-main`
 
 ```bash
 # BEFORE:
@@ -100,7 +88,7 @@ git rebase origin/main
 grebase-main           # auto-detects main vs master, fetches, rebases
 ```
 
-### 7. `pr-create` for pull requests
+### 7. `pr-create`
 
 ```bash
 # BEFORE:
@@ -111,9 +99,9 @@ gh pr create --title "Add auth retry" --fill
 pr-create              # auto-pushes, generates title from branch name
 ```
 
-Branch name `feature/add-auth-retry` becomes PR title "Add auth retry" automatically.
+Generates PR title from branch name. `feature/add-auth-retry` becomes "Add auth retry".
 
-### 8. `gdash` for a full repo snapshot
+### 8. `gdash`
 
 ```bash
 gdash
@@ -136,7 +124,7 @@ Remote:  origin/feature/auth-retry (ahead 2 / behind 0)
 ========================================
 ```
 
-### 9. `gundo` to safely undo a commit
+### 9. `gundo`
 
 ```bash
 gundo
@@ -144,9 +132,7 @@ Undoing commit: feat: add retry logic
 Changes are back in staging. Nothing was lost.
 ```
 
-Soft-resets the last commit. All your changes stay staged.
-
-### 10. `gfind` / `gwho` to investigate history
+### 10. `gfind` / `gwho`
 
 ```bash
 gfind "retry"          # search commit messages across all branches
@@ -255,59 +241,39 @@ gwhen src/auth.py 42   # who last touched line 42?
 
 ## Git Config Extras
 
-The `gitconfig-extras` file includes settings most engineers should have but few
-know about. The installer adds it to your global config, or you can do it manually:
+Sane defaults that most engineers should have. The installer adds these to your
+global config, or do it manually:
 
 ```bash
 git config --global include.path /path/to/ai-bu-git-productivity/gitconfig-extras
 ```
 
-Highlights:
-- `diff.algorithm = histogram` for cleaner diffs
-- `merge.conflictstyle = zdiff3` for easier conflict resolution
-- `rebase.autoStash = true` so you never have to stash before rebasing
-- `push.autoSetupRemote = true` so you never see the "no upstream" error
-- `rerere.enabled = true` so git remembers how you resolved conflicts
-- `core.fsmonitor = true` for faster `git status` on large repos
+What it sets:
+- `diff.algorithm = histogram` -- cleaner diffs
+- `merge.conflictstyle = zdiff3` -- better conflict markers
+- `rebase.autoStash = true` -- no more "stash before rebase"
+- `push.autoSetupRemote = true` -- no more "no upstream" error
+- `rerere.enabled = true` -- remembers conflict resolutions
+- `core.fsmonitor = true` -- faster status on large repos
 
 ## Hooks
 
-All hooks are optional and installed per-repo. Each one can be bypassed with
-`--no-verify` when you have a legitimate reason.
+Optional, per-repo. Bypass any hook with `--no-verify`.
 
-### Pre-commit
-
-Catches real mistakes before they land in history: `.env` files, files over 5MB,
-merge conflict markers, AWS keys, API tokens, private keys, and debug statements
-like `console.log` and `debugger`. Warns (but does not block) on TODO markers
-and trailing whitespace.
-
-### Commit-msg
-
-Checks for conventional commit format (`type: description`). If your message is
-not in the right format, it **suggests a prefix** based on the files you changed
-and lets the commit proceed. It does not reject your commit.
-
-### Pre-push
-
-Warns about uncommitted changes that will not be included in the push. Blocks
-WIP commits from being pushed to main/master.
+- **pre-commit** -- Blocks `.env` files, large files, conflict markers, secrets, debug statements. Warns on TODOs and trailing whitespace.
+- **commit-msg** -- Suggests conventional commit format based on staged files. Never blocks.
+- **pre-push** -- Warns on uncommitted changes. Blocks WIP commits to main/master.
 
 ## Workflows
 
-See [workflows.md](workflows.md) for copy-paste commands organized by scenario:
-- "I need to fix a bug in production"
-- "I pushed to main by accident"
-- "My rebase has conflicts"
-- "I need to find who changed this file"
-- "I need to prepare for standup"
+See [workflows.md](workflows.md) for copy-paste commands: fix a prod bug, undo a push to main, resolve rebase conflicts, prep for standup, etc.
 
 ## Requirements
 
-- Git 2.x or later
-- Bash or Zsh (fish works with the [bass](https://github.com/edc/bass) plugin)
-- [gh CLI](https://cli.github.com) (optional, for PR commands and dashboard)
-- [fzf](https://github.com/junegunn/fzf) (optional, for interactive branch picking with `gco`)
+- Git 2.x+
+- Bash or Zsh (fish works via [bass](https://github.com/edc/bass))
+- [gh CLI](https://cli.github.com) (optional, for PR commands)
+- [fzf](https://github.com/junegunn/fzf) (optional, for `gco` branch picker)
 
 ## License
 

@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/hooks/pre-push
-# Quick validation before pushing to a remote.
-#
-# What it checks:
-#   - Are there uncommitted changes? (warns so you don't forget something)
-#   - Are there WIP commits being pushed? (blocks push to main/master)
-#   - Is the push target a protected branch? (confirms before pushing to main/master)
+# Warns on uncommitted changes. Blocks WIP commits to main/master.
 #
 # Install:
-#   cp hooks/pre-push .git/hooks/pre-push
-#   chmod +x .git/hooks/pre-push
+#   cp hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 #
-# To skip this check: git push --no-verify
+# Skip once: git push --no-verify
 
 set -euo pipefail
 
@@ -24,9 +18,8 @@ current_branch=$(git branch --show-current 2>/dev/null || echo "")
 
 # ---- Check for uncommitted changes -----------------------------------------
 if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-  echo "WARNING: You have uncommitted changes."
-  echo "  These changes will NOT be included in this push."
-  echo "  Stage and commit them first if they should be included."
+  echo "WARNING: Uncommitted changes will NOT be included in this push."
+  echo "  Commit them first if they should be."
   echo ""
   warnings=$((warnings + 1))
 fi
@@ -69,7 +62,7 @@ done
 
 # ---- Summary ----------------------------------------------------------------
 if [ "$warnings" -gt 0 ]; then
-  echo "Pre-push: $warnings warning(s). Review the messages above."
+  echo "Pre-push: $warnings warning(s) above."
 fi
 
 if [ "$errors" -gt 0 ]; then

@@ -1,7 +1,6 @@
-# Git Workflows: Copy-Paste Commands for Every Scenario
+# Git Workflows
 
-Jump to the scenario you need. Each section gives you the exact commands to run.
-All aliases reference this toolkit. Install it first or swap in the full git commands.
+Copy-paste commands for common scenarios. Assumes this toolkit is installed.
 
 ---
 
@@ -43,7 +42,7 @@ gco -                   # switch back (dash means "previous branch")
 gunwip                  # undo the WIP commit, changes are staged and ready
 ```
 
-Alternative using stash:
+Or use stash:
 
 ```bash
 gstash "half-done auth work"
@@ -103,7 +102,7 @@ pr-create                   # create a PR from the branch instead
 
 **If other people already pulled:**
 
-Do NOT force-push main. Revert your commits instead:
+Do NOT force-push main. Revert instead:
 
 ```bash
 glog1                       # find the commit hashes you pushed
@@ -188,8 +187,6 @@ git push origin v1.2.1
 
 ## I force-pushed and lost commits
 
-Git keeps everything for at least 30 days in the reflog.
-
 ```bash
 git reflog
 # Find the commit hash from BEFORE the force-push, then:
@@ -215,17 +212,8 @@ pr-stack                    # my open PRs and their status
 gdash                       # full repo snapshot
 ```
 
-## Rebase vs merge: when to use which
+## Rebase vs merge
 
-**Rebase** when updating your feature branch from main:
-
-```bash
-grebase-main
-```
-
-**Merge** when landing a finished feature into main (usually done via GitHub PR).
-
-The short version:
-- Rebase to update your branch FROM main
-- Merge to put your branch INTO main
+- Rebase to update your branch FROM main: `grebase-main`
+- Merge to put your branch INTO main (usually via GitHub PR)
 - Never rebase a branch that other people are also pushing to

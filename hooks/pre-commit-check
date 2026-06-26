@@ -1,25 +1,12 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/hooks/pre-commit-check
-# Catches real mistakes before they land in your git history.
-#
-# BLOCKS (prevents commit):
-#   - .env files and other secret files
-#   - Files over 5 MB (use Git LFS instead)
-#   - Merge conflict markers (<<<<<<, >>>>>>, ======)
-#   - AWS keys, API tokens, private keys
-#   - Debug statements: console.log, debugger, binding.pry, breakpoint()
-#
-# WARNS (commit proceeds, but you should know):
-#   - Credential-like file patterns (.pem, .p12, private keys)
-#   - TODO/FIXME/HACK in new code (just a heads-up)
-#   - Trailing whitespace
+# Blocks secrets, large files, debug statements, conflict markers.
+# Warns on credential-like files, TODOs, trailing whitespace.
 #
 # Install:
-#   cp hooks/pre-commit-check .git/hooks/pre-commit
-#   chmod +x .git/hooks/pre-commit
+#   cp hooks/pre-commit-check .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 #
-# Skip for a single commit: git commit --no-verify
-# Disable for a repo: rm .git/hooks/pre-commit
+# Skip once: git commit --no-verify
 
 set -euo pipefail
 
@@ -38,9 +25,9 @@ fi
 # .env files
 env_files=$(echo "$STAGED_FILES" | grep -E '\.env($|\.)' || true)
 if [ -n "$env_files" ]; then
-  echo "BLOCKED: .env file(s) staged for commit:"
+  echo "BLOCKED: .env file(s) staged:"
   echo "$env_files"
-  echo "These files often contain secrets. Add them to .gitignore instead."
+  echo "Add to .gitignore instead."
   echo ""
   errors=$((errors + 1))
 fi
@@ -91,21 +78,21 @@ while IFS= read -r file; do
   # AWS access key IDs and secret keys
   if grep -nE '(AKIA[0-9A-Z]{16}|aws_secret_access_key|aws_access_key_id)\s*[=:]' "$file" 2>/dev/null; then
     echo "BLOCKED: Possible AWS credentials in '$file'."
-    echo "Use environment variables or a secrets manager instead."
+    echo "Use env vars or a secrets manager."
     echo ""
     errors=$((errors + 1))
   fi
   # Generic API keys and tokens
   if grep -nE '(api[_-]?key|api[_-]?secret|auth[_-]?token|access[_-]?token)\s*[=:]\s*["\x27][A-Za-z0-9+/]{20,}' "$file" 2>/dev/null; then
-    echo "BLOCKED: Possible hardcoded API key or token in '$file'."
-    echo "Use environment variables or a secrets manager instead."
+    echo "BLOCKED: Possible hardcoded API key/token in '$file'."
+    echo "Use env vars or a secrets manager."
     echo ""
     errors=$((errors + 1))
   fi
   # Private keys
   if grep -qE 'BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY' "$file" 2>/dev/null; then
     echo "BLOCKED: Private key found in '$file'."
-    echo "Never commit private keys to version control."
+    echo "Remove it and add the path to .gitignore."
     echo ""
     errors=$((errors + 1))
   fi
@@ -153,9 +140,9 @@ fi
 # Credential-like file patterns
 cred_files=$(echo "$STAGED_FILES" | grep -iE '(credentials|secret|private.key|\.pem$|\.p12$|\.pfx$|id_rsa|id_ed25519|\.key$)' || true)
 if [ -n "$cred_files" ]; then
-  echo "WARNING: Potentially sensitive file(s) staged:"
+  echo "WARNING: Possibly sensitive file(s) staged:"
   echo "$cred_files"
-  echo "Double-check that these do not contain secrets."
+  echo "Verify these do not contain secrets."
   echo ""
   warnings=$((warnings + 1))
 fi
@@ -176,7 +163,7 @@ while IFS= read -r file; do
 done <<< "$STAGED_FILES"
 
 if [ "$marker_found" -eq 1 ]; then
-  echo "  Fine if intentional. Just making sure you know."
+  echo "  Fine if intentional."
   echo ""
   warnings=$((warnings + 1))
 fi
@@ -207,7 +194,7 @@ fi
 # ---- SUMMARY ----------------------------------------------------------------
 
 if [ "$warnings" -gt 0 ]; then
-  echo "Pre-commit: $warnings note(s). Review the messages above."
+  echo "Pre-commit: $warnings note(s) above."
 fi
 
 if [ "$errors" -gt 0 ]; then

@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/aliases.sh
-# Git aliases and functions for engineers who type git commands 50+ times a day.
-# Source this file from your .zshrc or .bashrc:
-#   source /path/to/ai-bu-git-productivity/aliases.sh
-#
-# Organized by how often you use them. The top section covers commands
-# you will reach for dozens of times per day.
+# Source from .zshrc or .bashrc:  source /path/to/ai-bu-git-productivity/aliases.sh
 
 # =============================================================================
 # INTERNAL HELPERS
 # =============================================================================
 
-# Auto-detect the default branch name (main vs master vs something else)
 _git_default_branch() {
   local branch
   branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
@@ -51,10 +45,8 @@ _require_git_repo() {
 # =============================================================================
 # EVERY 5 MINUTES: Status, diff, add, commit, push
 # =============================================================================
-# These replace the commands your fingers already know. Same muscle memory,
-# fewer keystrokes, better output.
 
-# gs: 2 keystrokes instead of 10. Shows branch, ahead/behind, and file status.
+# gs: status with branch + ahead/behind
 gs() {
   _require_git_repo || return 1
   local branch ahead behind upstream
@@ -90,7 +82,7 @@ alias gaa='git add -A'
 alias gd='git diff'
 alias gds='git diff --staged'
 
-# gc: stage all + commit in one shot. Saves 20+ keystrokes per commit.
+# gc: stage all + commit in one shot
 gc() {
   if [ -z "$1" ]; then
     echo "Usage: gc \"your commit message\""
@@ -99,7 +91,7 @@ gc() {
   git add -A && git commit -m "$*"
 }
 
-# gpush: push and set upstream automatically. No more copying the suggested command.
+# gpush: push and set upstream automatically
 gpush() {
   _require_git_repo || return 1
   local branch
@@ -110,7 +102,7 @@ gpush() {
 # gpull: pull with rebase (no accidental merge commits)
 alias gpull='git pull --rebase'
 
-# gco: switch branches. Uses fzf for interactive selection if available.
+# gco: switch branches (fzf picker if no arg)
 gco() {
   _require_git_repo || return 1
   if [ -n "$1" ]; then
@@ -144,8 +136,7 @@ gcb() {
 # EVERY HOUR: Log, stash, rebase, amend
 # =============================================================================
 
-# glog: beautiful one-line log with graph, colors, and relative dates.
-# Replaces a 40+ character command with 4 keystrokes.
+# glog: one-line log with graph, colors, relative dates
 alias glog='git log --oneline --graph --decorate --all --color --format="%C(yellow)%h%C(auto)%d %C(reset)%s %C(cyan)(%cr) %C(blue)<%an>"'
 
 # glog1: condensed log, last 20 commits, no graph
@@ -176,7 +167,7 @@ alias gstash-pop='git stash pop'
 # gstash-ls: list stashes with a clean format
 alias gstash-ls='git stash list --format="%C(yellow)%gd %C(reset)%s %C(cyan)(%cr)"'
 
-# grebase-main: fetch and rebase onto the default branch. Auto-detects main vs master.
+# grebase-main: fetch + rebase onto main/master (auto-detects)
 grebase-main() {
   _require_git_repo || return 1
   local default_branch
@@ -217,9 +208,7 @@ alias grs-staged='git restore --staged'
 # SEVERAL TIMES A DAY: WIP workflow, undo, diff views
 # =============================================================================
 
-# gwip: save your work as a WIP commit before switching branches.
-# Stages everything and commits with a WIP prefix that skips CI.
-# Pairs with gunwip to undo it cleanly.
+# gwip: quick WIP commit (warns on main, skips CI)
 gwip() {
   _require_git_repo || return 1
   local branch
@@ -239,7 +228,7 @@ gwip() {
   fi
 
   git add -A && git commit -m "WIP: work in progress [skip ci]"
-  echo "WIP saved. Use 'gunwip' to undo this commit and get your changes back."
+  echo "WIP saved. Run 'gunwip' to undo."
 }
 
 # gunwip: undo the last commit if it was a WIP. Changes stay staged.
@@ -256,7 +245,7 @@ gunwip() {
   fi
 }
 
-# gundo: safely undo the last commit. All changes stay staged, nothing is lost.
+# gundo: undo last commit, changes stay staged
 gundo() {
   _require_git_repo || return 1
   local last_msg
@@ -265,12 +254,12 @@ gundo() {
     echo "Error: no commits to undo."
     return 1
   fi
-  echo "Undoing commit: $last_msg"
+  echo "Undoing: $last_msg"
   git reset --soft HEAD~1
-  echo "Changes are back in staging. Nothing was lost."
+  echo "Done. Changes are staged."
 }
 
-# gdiff-words: word-level diff instead of line-level (great for prose and config)
+# gdiff-words: word-level diff (good for prose and config)
 alias gdiff-words='git diff --word-diff=color'
 
 # gdiff-words-staged: word-level diff for staged changes
@@ -282,7 +271,7 @@ alias gdiff-staged='git diff --staged'
 # gdiff-last: show the full diff of the last commit
 alias gdiff-last='git diff HEAD~1 HEAD'
 
-# gdiff-stat: file-level diff stats for a branch vs the default branch
+# gdiff-stat: file-level diff stats vs the default branch
 gdiff-stat() {
   _require_git_repo || return 1
   local branch="${1:-HEAD}"
@@ -302,7 +291,7 @@ gchanged() {
     git diff --name-only "$(git rev-list --max-parents=0 HEAD)" HEAD
 }
 
-# gtoday: what did I commit today? Great for standups.
+# gtoday: your commits from today
 gtoday() {
   _require_git_repo || return 1
   local author
@@ -318,7 +307,7 @@ gtoday() {
     --date=short
 }
 
-# gweek: what did I commit this week? Useful for weekly updates.
+# gweek: your commits from this week
 gweek() {
   _require_git_repo || return 1
   local author
@@ -338,8 +327,7 @@ gweek() {
 # PR WORKFLOW: From branch creation to merge
 # =============================================================================
 
-# pr-create: create a PR with the title auto-filled from the branch name.
-# Your branch name feature/add-auth-retry becomes "Add auth retry" automatically.
+# pr-create: create a PR, auto-fill title from branch name
 pr-create() {
   _require_gh || return 1
   _require_git_repo || return 1
@@ -368,7 +356,7 @@ pr-create() {
   gh pr create --title "$title" --fill
 }
 
-# pr-draft: create a draft PR (for early feedback before it is ready)
+# pr-draft: create a draft PR
 pr-draft() {
   _require_gh || return 1
   _require_git_repo || return 1
@@ -390,7 +378,7 @@ pr-draft() {
   gh pr create --title "$title" --fill --draft
 }
 
-# pr-ready: mark a draft PR as ready and optionally request reviewers
+# pr-ready: mark draft PR as ready, optionally add reviewers
 pr-ready() {
   _require_gh || return 1
   _require_git_repo || return 1
@@ -405,7 +393,7 @@ pr-ready() {
   fi
 }
 
-# pr-cleanup: delete local and remote branches that have been merged
+# pr-cleanup: delete merged branches locally and on the remote
 pr-cleanup() {
   _require_git_repo || return 1
   local default_branch
@@ -504,7 +492,7 @@ pr-diff() {
 # INVESTIGATION: Figure out what happened and who changed it
 # =============================================================================
 
-# gwho: who changed this file the most? Top contributors by commit count.
+# gwho: top contributors to a file by commit count
 gwho() {
   _require_git_repo || return 1
   local file="${1:-}"
@@ -521,7 +509,7 @@ gwho() {
   git log --format='%aN' -- "$file" | sort | uniq -c | sort -rn | head -10
 }
 
-# gwhen: when was this file/line last changed? Formatted blame with relative dates.
+# gwhen: blame with relative dates (optionally one line)
 gwhen() {
   _require_git_repo || return 1
   local file="${1:-}"
@@ -553,13 +541,12 @@ gfind() {
   git log --all --oneline --grep="$keyword" --format="%C(yellow)%h %C(reset)%s %C(cyan)(%cr) %C(blue)<%an>"
 }
 
-# gfind-code: search code diffs for when a string was added or removed
+# gfind-code: search diffs for when a string was added/removed
 gfind-code() {
   _require_git_repo || return 1
   local keyword="${1:-}"
   if [ -z "$keyword" ]; then
     echo "Usage: gfind-code <string>"
-    echo "Searches commit diffs for when a string was added or removed."
     return 1
   fi
   echo "Commits where \"$keyword\" was added or removed:"
@@ -609,7 +596,7 @@ gteam() {
     --count=20 | grep -v 'origin/HEAD'
 }
 
-# gstale: find branches with no commits in N+ days (default 14)
+# gstale: branches with no commits in N+ days (default 14)
 gstale() {
   _require_git_repo || return 1
   local days="${1:-14}"
@@ -635,7 +622,7 @@ gstale() {
   fi
 }
 
-# gleaderboard: commit leaderboard for the last N days (default 30)
+# gleaderboard: commit leaderboard, last N days (default 30)
 gleaderboard() {
   _require_git_repo || return 1
   local days="${1:-30}"
@@ -721,7 +708,7 @@ gdash() {
 # CLEANUP: Keep your repo tidy
 # =============================================================================
 
-# gclean: delete local branches that have been merged (with confirmation)
+# gclean: delete merged local branches (with confirmation)
 gclean() {
   _require_git_repo || return 1
   local default_branch
@@ -746,7 +733,7 @@ gclean() {
   fi
 }
 
-# gclean-files: remove all untracked files and directories (with confirmation)
+# gclean-files: remove untracked files and directories (with confirmation)
 gclean-files() {
   _require_git_repo || return 1
   echo "Untracked files that would be removed:"
@@ -762,7 +749,7 @@ gclean-files() {
   fi
 }
 
-# greset-hard: reset current branch to match the remote exactly (with confirmation)
+# greset-hard: reset branch to match remote (with confirmation)
 greset-hard() {
   _require_git_repo || return 1
   local branch
@@ -809,7 +796,7 @@ gopen() {
   fi
 }
 
-# gcp: cherry-pick with conflict resolution hints
+# gcp: cherry-pick with conflict hints
 gcp() {
   _require_git_repo || return 1
   if [ -z "$1" ]; then

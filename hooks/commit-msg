@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
 # ai-bu-git-productivity/hooks/commit-msg
-# Validates commit messages and suggests improvements without being rigid.
-#
-# What it does:
-#   - If the message is not in conventional format, it SUGGESTS a prefix
-#     based on the files you changed, then lets you decide
-#   - Warns about long subject lines and short descriptions
-#   - Skips auto-generated messages (merge, revert, WIP, fixup, squash)
+# Suggests conventional commit format. Never blocks.
 #
 # Install:
-#   cp hooks/commit-msg .git/hooks/commit-msg
-#   chmod +x .git/hooks/commit-msg
+#   cp hooks/commit-msg .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
 
 set -euo pipefail
 
